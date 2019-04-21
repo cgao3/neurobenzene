@@ -34,7 +34,8 @@ public:
         returns "appropriate" move. Otherwise, calls Search().
     */
     HexPoint GenMove(const HexState& state, const Game& game, 
-                     HexBoard& brd, double maxTime, double& score);
+                     HexBoard& brd, double maxTime,
+                     double& score, std::vector<std::pair<SgMove, double> >* moveProbs=0);
 
     /** Search states with only a single move? */
     bool SearchSingleton() const;
@@ -57,11 +58,13 @@ protected:
         @param consider Moves to consider in this state. 
         @param maxTime Max time available for move.
         @param score Score of the move to play.
+        @param moveProbs. a vector of move probs of the moves at root.
         @return The move to play.
     */
     virtual HexPoint Search(const HexState& state, const Game& game,
                             HexBoard& brd, const bitset_t& consider,
-                            double maxTime, double& score) = 0;
+                            double maxTime, double& score,
+                            std::vector<std::pair<SgMove, double> >* moveProbs=0) = 0;
     
 private:
     bool m_search_singleton;

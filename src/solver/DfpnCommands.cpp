@@ -142,7 +142,9 @@ void DfpnCommands::CmdParam(HtpCommand& cmd)
             << "[string] tt_bak_start "
             << '"' << m_solver.TtBakStart() << '"' << '\n'
             << "[string] tt_bak_period "
-            << m_solver.TtBakPeriod() << '\n';
+            << m_solver.TtBakPeriod() << '\n'
+            << "[bool] use_nn " 
+            << m_solver.UseNN() << '\n' ; 
     }
     else if (cmd.NuArg() == 2)
     {
@@ -153,14 +155,17 @@ void DfpnCommands::CmdParam(HtpCommand& cmd)
             m_solver.SetGuiFxDeepBounds(cmd.Arg<bool>(1));
         else if (name == "timelimit")
             m_solver.SetTimelimit(cmd.ArgMin<float>(1, 0.0));
-	else if (name == "tt_size")
-	{
-	    int size = cmd.ArgMin<int>(1, 0);
-	    if (size == 0)
-		m_tt.reset(0);
-	    else
-		m_tt.reset(new DfpnHashTable(size));
-	}
+	    else if (name == "tt_size") 
+        {
+	        int size = cmd.ArgMin<int>(1, 0);
+	        if (size == 0) m_tt.reset(0);
+	        else m_tt.reset(new DfpnHashTable(size));
+	    }
+        else if(name == "use_nn"){
+            int use_nn=cmd.ArgMin<int>(1,0);
+            if(use_nn) m_solver.SetUseNN(true);
+            else m_solver.SetUseNN(false);
+        }
         else if (name == "widening_base")
             m_solver.SetWideningBase(cmd.ArgMin<int>(1, 0));
         else if (name == "widening_factor")

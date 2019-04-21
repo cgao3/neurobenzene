@@ -91,12 +91,13 @@ std::string MoveSelectToString(SgUctMoveSelect moveSelect)
 
 MoHexEngine::MoHexEngine(int boardsize, MoHexPlayer& player)
     : CommonHtpEngine(boardsize),
-      m_player(player), 
+      m_player(player),
       m_book(0),
       m_bookCheck(m_book),
       m_bookCommands(m_game, m_pe, m_book, m_bookCheck, m_player),
       m_timeControlOverride(-1.0f)
 {
+    m_player.Search().SetNNEvaluator(m_nn);
     m_bookCommands.Register(*this);
     RegisterCmd("param_mohex", &MoHexEngine::MoHexParam);
     RegisterCmd("param_mohex_policy", &MoHexEngine::MoHexPolicyParam);
@@ -162,6 +163,9 @@ HexPoint MoHexEngine::GenMove(HexColor color, bool useGameClock)
     SG_UNUSED(useGameClock);
     if (SwapCheck::PlaySwap(m_game, color))
         return SWAP_PIECES;
+    HexPoint opening=SwapCheck::PlayFirstMove(m_game, color);
+    if (opening!=INVALID_POINT)
+        return opening;
     HexPoint bookMove = m_bookCheck.BestMove(HexState(m_game.Board(), color));
     if (bookMove != INVALID_POINT)
         return bookMove;
@@ -349,13 +353,34 @@ void MoHexEngine::MoHexParam(HtpCommand& cmd)
             << "[string] time_control_override "
             << m_timeControlOverride << '\n'
             << "[string] uct_bias_constant "
-            << search.UctBiasConstant() << '\n';
+            << search.UctBiasConstant() << '\n'
+            << "[string] moveselect_ditherthreshold "
+            << m_player.GetDitherThreshold() <<"\n"
+            << "[string] use_playout_const "
+            << search.UsePlayoutConst() << "\n"
+            << "[string] root_dirichlet_prior "
+            << search.RootDirichletPrior()<< "\n"
+            << "[string] dither_temperature "
+            << search.DitherTemperature()<< "\n";
     }
     else if (cmd.NuArg() == 2)
     {
         std::string name = cmd.Arg(0);
         if (name == "backup_ice_info")
             m_player.SetBackupIceInfo(cmd.Arg<bool>(1));
+        else if (name =="moveselect_ditherthreshold")
+            m_player.SetDitherThreshold(cmd.Arg<int>(1));
+        else if (name =="root_dirichlet_prior"){
+            m_player.Search().SetRootDirichletPrior(cmd.Arg<float>(1));
+        }
+        else if (name =="use_playout_const"){
+            cmd.ArgMinMax<double>(1, 0.0, 1.0);
+            search.SetUsePlayoutConst(cmd.Arg<double>(1));
+        }
+        else if (name =="dither_temperature"){
+            cmd.ArgMin<double>(1, 1e-6);
+            search.SetDitherTemperature(cmd.Arg<double>(1));
+        }
         else if (name == "extend_unstable_search")
             search.SetExtendUnstableSearch(cmd.Arg<bool>(1));
         else if (name == "lazy_delete")
@@ -907,13 +932,49 @@ void MoHexEngine::FindTopMoves(HtpCommand& cmd)
             << '@' << std::fixed << std::setprecision(3) << scores[i];
 }
 
+//two arugments, number games, filename to save played games, [optional] opening_list
 void MoHexEngine::SelfPlay(HtpCommand& cmd)
 {
-    cmd.CheckNuArg(1);
+    if (cmd.NuArg()!=2 and cmd.NuArg()!=3){
+        cmd <<"needs 2 or 3 arguments: number_of_games file_to_save_games opening_move_list[optional]\n";
+        throw GtpFailure() << "command needs 2 or 3 arguments";
+        return ;
+    }
     std::size_t numGames = cmd.ArgMin<size_t>(0, 1);
+    std::string filename=cmd.Arg(1);
+    std::string playedGames;
+
+    std::vector<HexPoint> openings_vec;
+    if(cmd.NuArg()==3){
+        std::string opening_file_name="";
+        opening_file_name=cmd.Arg(2);
+        std::ifstream opening_file(opening_file_name);
+        if(!opening_file.good()){
+            throw GtpFailure() << "opening file not existed!";
+            return;
+        }
+        while(!opening_file.eof()){
+            std::string point_str;
+            std::getline(opening_file, point_str);
+            HexPoint open_point=HexPointUtil::FromString(point_str);
+            if(open_point!=INVALID_POINT) openings_vec.push_back(open_point);
+        }
+    }
+
     StoneBoard board(m_game.Board());
     Game game(board);
     HexState state(board.Width());
+    int boardsize=board.Width();
+
+    std::chrono::system_clock::time_point p_now = std::chrono::system_clock::now();
+    std::time_t t_now = std::chrono::system_clock::to_time_t(p_now);
+    std::string datestr= std::string(std::ctime(&t_now));
+    std::string::iterator ite;
+    for (ite = datestr.end()-1; ite != datestr.begin() && *ite == '\n';) ite--;
+    if (*ite != '\n') ite++;
+    datestr.erase(ite, datestr.end());
+
+    playedGames.append("#"+std::to_string(boardsize)+" x "+std::to_string(boardsize)+" Hex "+datestr+"\n");
     for (size_t i = 0; i < numGames; ++i)
     {
         LogInfo() << "*********** Game " << (i + 1) << " ***********\n";
@@ -922,21 +983,82 @@ void MoHexEngine::SelfPlay(HtpCommand& cmd)
         state.SetToPlay(BLACK);
         
         HexPoint firstMove = BoardUtil::RandomEmptyCell(state.Position());
+        if(openings_vec.size()>0){
+            firstMove=openings_vec[i%openings_vec.size()];
+        }
         game.PlayMove(state.ToPlay(), firstMove);
         state.PlayMove(firstMove);
 
+        std::vector<std::pair<SgMove, double> > moveProbs;
+        std::vector<HexPoint> moveseq;
+        moveseq.push_back(firstMove);
+        playedGames.append("B["+HexPointUtil::ToString(firstMove)+"] ");
+        bool is_black_turn=false;
         while (true)
         {
             double score;
+            moveProbs.clear();
             HexPoint move = m_player.GenMove(state, game,
                                              m_pe.SyncBoard(state.Position()),
-                                             m_player.MaxTime(), score);
-            if (HexEvalUtil::IsWinOrLoss(score))
+                                             m_player.MaxTime(), score, &moveProbs); 
+            if(moveProbs.size()==0){
+                moveProbs.push_back(std::make_pair(move, 1.0));
+            }
+            if(is_black_turn){ 
+                playedGames.append("B["+HexPointUtil::ToString(move)+"][");
+                                        
+            } else {
+                playedGames.append("W["+HexPointUtil::ToString(move)+"][");
+            }
+            //only write those >0.0
+            for(int i=0;i<moveProbs.size();i++){
+                    std::pair<SgMove, double> move_score=moveProbs[i];
+                    HexPoint pointMove=static_cast<HexPoint>(move_score.first);
+                    std::stringstream precision_stream;
+                    precision_stream << std::fixed << std::setprecision(2) << move_score.second;
+                    if(move_score.second>=0.006) playedGames.append(HexPointUtil::ToString(pointMove)+":"+precision_stream.str()+";");
+            }
+            playedGames.append("] ");
+            is_black_turn=!is_black_turn;
+            moveseq.push_back(move);
+            //write the played moves
+            if (HexEvalUtil::IsWinOrLoss(score)){
+                //The score in the data is w.r.t the player to play next!
+                if(HexEvalUtil::IsWin(score)){
+                    score=-1.0;
+                } else if (HexEvalUtil::IsLoss(score)){
+                    score=1.0;
+                } else {
+                    BenzeneAssertShutdown("SHOULD Not Happen! Fatal error!", "MoHexEngine.cpp", 994, "SelfPlay");
+                }
+                LogInfo()<<"res: "<<score<<"\n";
+                playedGames.append(std::to_string(score)+"\n");
                 break;
+            }
             game.PlayMove(state.ToPlay(), move);
             state.PlayMove(move);
         }
-    }    
+    }
+    //This is a bit Hack!
+    std::string tmp_name="./tmp_selfplay_lock.txt";
+    std::ifstream tmpin(tmp_name);
+    int cnt=0;
+    while(tmpin.good() && cnt<10){
+        LogInfo() << "locked. wait 5s to write played games to "<<filename<<"\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        cnt++;
+    }
+    if(cnt>=10) LogInfo() <<"Not writing because of "<<tmp_name<<" Lock!\n";
+    std::ofstream tmp_out(tmp_name);
+
+    std::ofstream outfile;
+    outfile.open(filename, std::ios_base::app);
+    outfile<<playedGames;
+    outfile.flush();
+    outfile.close();
+
+    tmp_out.close();
+    std::remove(tmp_name.c_str());
 }
 
 //----------------------------------------------------------------------------

@@ -12,6 +12,8 @@
 
 #include "MoHexThreadState.hpp"
 #include "MoHexPatterns.hpp"
+#include "NeuroEvaluate.hpp"
+
 
 _BEGIN_BENZENE_NAMESPACE_
 
@@ -134,6 +136,16 @@ public:
 
     void SetVCMGamma(float gamma);
 
+    /** added by Chao Gao */
+    const NNEvaluator& GetNNEvaluator() const;
+
+	std::shared_ptr<NNEvaluator> GetNNEvaluatorPtr() const;
+
+    void SetNNEvaluator(std::shared_ptr<NNEvaluator> nn_ptr);
+
+    float RootDirichletPrior() const;
+
+    void SetRootDirichletPrior(float value);
     // @} 
 
 private:
@@ -176,7 +188,35 @@ private:
 
     /** Not implemented */
     MoHexSearch& operator=(const MoHexSearch& search);
+
+    /** added by Chao Gao */
+    std::shared_ptr<NNEvaluator> m_nnEvaluator;
+
+    /** dirichlet nosie at root; 0.0 means no dirichlet noise otherwise
+     * sameple from dirichlet distribution for combine root prior */
+    float m_root_dirichlet_prior;
 };
+
+inline float MoHexSearch::RootDirichletPrior() const {
+    return m_root_dirichlet_prior;
+}
+
+inline void MoHexSearch::SetRootDirichletPrior(float value){
+    m_root_dirichlet_prior=value;
+}
+
+inline const NNEvaluator& MoHexSearch::GetNNEvaluator() const {
+    return *m_nnEvaluator;
+}
+
+inline std::shared_ptr<NNEvaluator> MoHexSearch::GetNNEvaluatorPtr() const
+{
+	return m_nnEvaluator;
+}
+
+inline void MoHexSearch::SetNNEvaluator(std::shared_ptr<NNEvaluator> nn_ptr){
+    m_nnEvaluator=nn_ptr;
+}
 
 inline void MoHexSearch::SetBoard(HexBoard& board)
 {

@@ -22,6 +22,9 @@ bool s_swapLoaded = false;
     board. */
 std::map<std::string, std::set<HexPoint> > s_swapMoves;
 
+/** Contain balanced opening moves*/
+std::map<std::string, std::set<HexPoint> > s_balancedMoves;
+
 /** Loads swap moves for each boardsize.
     Ignores lines begining with '#'. On lines not begining with '#',
     expects a string of the form "nxn" and the name of a HexPoint:
@@ -30,14 +33,18 @@ std::map<std::string, std::set<HexPoint> > s_swapMoves;
 void LoadSwapMoves()
 {
     std::ifstream inFile;
+    std::ifstream iFile2;
     try {
         std::string file = MiscUtil::OpenFile("swap-moves.txt", inFile);
         LogInfo() << "SwapCheck: reading from '" << file << "'.\n";
+        std::string file2 = MiscUtil::OpenFile("balanced-openings.txt", iFile2);
+        LogInfo() <<" SwapCheck: reading from '" << file2 <<"'.\n";
     }
     catch (BenzeneException& e) {
         throw BenzeneException() << "SwapCheck: " << e.what();
     }
     s_swapMoves.clear();
+    s_balancedMoves.clear();
     std::string line;
     std::size_t lineNumber = 0;
     while (std::getline(inFile, line))
@@ -54,12 +61,33 @@ void LoadSwapMoves()
         ss >> pointStr;
         HexPoint point = HexPointUtil::FromString(pointStr);
         if (point == INVALID_POINT)
-            LogWarning() << "SwapCheck: line " << lineNumber 
+            LogWarning() << "SwapCheck: line " << lineNumber << " swap-moves.txt"
                          << ": invalid cell!\n";
         else
             s_swapMoves[boardSizeStr].insert(point);
     }
     inFile.close();
+    lineNumber = 0;
+    while (std::getline(iFile2, line))
+    {
+        lineNumber++;
+        if (line[0] == '#')
+            continue;
+        if (line.size() < 6) // skip (nearly) empty lines
+            continue;
+        std::string boardSizeStr;
+        std::string pointStr;
+        std::istringstream ss(line);
+        ss >> boardSizeStr;
+        ss >> pointStr;
+        HexPoint point = HexPointUtil::FromString(pointStr);
+        if (point == INVALID_POINT)
+            LogWarning() << "SwapCheck: line " << lineNumber << " balanced-openigns.txt "
+                         << ": invalid cell!\n";
+        else
+            s_balancedMoves[boardSizeStr].insert(point);
+    }
+    iFile2.close();
     s_swapLoaded = true;
 }
 
@@ -109,7 +137,28 @@ bool SwapCheck::PlaySwap(const Game& gameState, HexColor toPlay)
         }
         LogInfo() << "SwapCheck: opting not to swap.\n";
     }
+
+
     return false;
 }
 
+/**Should be square board */
+HexPoint SwapCheck::PlayFirstMove(const Game& gameState, HexColor toPlay){
+    HexPoint opening=INVALID_POINT;
+    if(gameState.AllowSwap() && gameState.History().size()==0){
+        if (!s_swapLoaded)
+            LoadSwapMoves();
+        const StoneBoard& brd = gameState.Board();
+        BenzeneAssert(0 == brd.NumStones());
+        std::ostringstream os;
+        os << brd.Width() << 'x' << brd.Height();
+        std::set<HexPoint>::const_iterator it(s_balancedMoves[os.str()].begin());
+        size_t k = rand()%s_balancedMoves[os.str()].size();
+        // 'advance' the iterator k times
+        advance(it,k);
+        opening = *it;
+        LogInfo() <<"SwapCheck: Play balanced first move "<< HexPointUtil::ToString(opening) <<"\n";
+    }
+    return opening;
+}
 //----------------------------------------------------------------------------

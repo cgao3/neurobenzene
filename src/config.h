@@ -1,3 +1,6 @@
+/* src/config.h.  Generated from config.h.in by configure.  */
+/* src/config.h.in.  Generated from configure.ac by autoheader.  */
+
 /* "Berkeley DB Header File" */
 #define DB_HEADER "db.h"
 
@@ -27,25 +30,25 @@
 #define HAVE_GCC_ATOMIC_BUILTINS 1
 
 /* Name of package */
-#define PACKAGE "benzene-cmake"
+#define PACKAGE "neurobenzene"
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "benzene-cmake"
+#define PACKAGE_NAME "neurobenzene"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "benzene-cmake 1.0.GIT"
+#define PACKAGE_STRING "neurobenzene 3.0.GIT"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "benzene"
+#define PACKAGE_TARNAME "neurobenzene"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.0.GIT"
+#define PACKAGE_VERSION "3.0.GIT"
 
 /* Version number of package */
-#define VERSION "2.0.CMake"
+#define VERSION "3.0.GIT"

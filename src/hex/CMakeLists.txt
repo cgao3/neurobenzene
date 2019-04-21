@@ -1,6 +1,5 @@
 file(GLOB hex_SRC *.cpp *.hpp)
 
-include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${top_srcdir}/src
         ${top_srcdir}/src/util
         ${top_srcdir}/src/book
@@ -12,4 +11,7 @@ target_link_libraries(hex
         book
         fuego_smartgame 
         fuego_gtpengine
-        db)
+        db
+        ${Boost_LIBRARIES}
+        )
+#boost_system boost_filesystem boost_program_options boost_thread)

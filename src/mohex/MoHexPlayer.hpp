@@ -8,6 +8,7 @@
 #include "BenzenePlayer.hpp"
 #include "MoHexSearch.hpp"
 #include "MoHexPlayoutPolicy.hpp"
+#include "NeuroEvaluate.hpp"
 
 _BEGIN_BENZENE_NAMESPACE_
 
@@ -103,6 +104,10 @@ public:
     /** See UseRootData() */
     void SetUseRootData(bool use);
 
+    int GetDitherThreshold() const;
+
+    void SetDitherThreshold(int threshold); 
+
     // @}
 
 protected:
@@ -135,10 +140,14 @@ protected:
     /** See UseRootData() */
     bool m_useRootData;
     
+    /** move select with dithering with num of stones in state is less than m_dither_threshold*/
+    int m_dither_threshold;
+    
     /** Generates a move in the given gamestate using uct. */
     HexPoint Search(const HexState& state, const Game& game,
                     HexBoard& brd, const bitset_t& consider,
-                    double maxTime, double& score);
+                    double maxTime, double& score,
+                    std::vector<std::pair<SgMove, double> >* moveProbs=0);
 
     bool PerformPreSearch(HexBoard& brd, HexColor color, bitset_t& consider, 
                           double maxTime, PointSequence& winningSequence);
@@ -153,9 +162,19 @@ protected:
                            MoHexSharedData& newData) const;
 };
 
+inline void MoHexPlayer::SetDitherThreshold(int threshold)
+{
+    m_dither_threshold=threshold;
+}
+
+inline int MoHexPlayer::GetDitherThreshold() const 
+{
+    return m_dither_threshold;
+}
+
 inline std::string MoHexPlayer::Name() const
 {
-    return "mohex";
+    return "Mohex";
 }
 
 inline MoHexSearch& MoHexPlayer::Search()

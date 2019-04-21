@@ -25,6 +25,9 @@ namespace SwapCheck
 	used, checks hardcoded swap rules and returns true if swap
 	should be played. */
     bool PlaySwap(const Game& game, HexColor toPlay);
+
+    /** Play a balanced first move if allow_swap is on */
+    HexPoint PlayFirstMove(const Game& game, HexColor toPlay);
 }
 
 //----------------------------------------------------------------------------

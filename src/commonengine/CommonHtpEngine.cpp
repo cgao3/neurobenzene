@@ -2,6 +2,7 @@
 /** @file CommonHtpEngine.cpp */
 //----------------------------------------------------------------------------
 
+#include <boost/filesystem/operations.hpp>
 #include "SgSystem.h"
 #include "SgGameReader.h"
 
@@ -24,6 +25,7 @@ using namespace benzene;
 
 CommonHtpEngine::CommonHtpEngine(int boardsize)
     : HexHtpEngine(boardsize),
+      m_nn(std::make_shared<NNEvaluator>(std::string(ABS_TOP_SRCDIR)+"/share/nn/11x11train4.txt.out-post.ckpt-1.const.pb")),
       m_pe(m_board.Width(), m_board.Height()),
       m_se(m_board.Width(), m_board.Height()),
       m_dfsSolver(),
@@ -45,6 +47,7 @@ CommonHtpEngine::CommonHtpEngine(int boardsize)
                            m_dfpnDB, m_dfpnPositions),
       m_useParallelSolver(false)
 {
+    m_dfpnSolver.SetNNEvaluator(m_nn);
     RegisterCmd("benzene-license", &CommonHtpEngine::CmdLicense);
     RegisterCmd("group-get", &CommonHtpEngine::CmdGroupGet);
     RegisterCmd("handbook-add", &CommonHtpEngine::CmdHandbookAdd);
@@ -71,6 +74,11 @@ CommonHtpEngine::CommonHtpEngine(int boardsize)
 
     RegisterCmd("add-fillin-to-sgf", &CommonHtpEngine::CmdAddFillinToSgf);
 
+    RegisterCmd("nn_evaluate", &CommonHtpEngine::CmdNeuralEvaluate);
+    RegisterCmd("nn_evaluate_actions", &CommonHtpEngine::CmdNeuralEvaluateActions);
+    RegisterCmd("nn_load", &CommonHtpEngine::CmdLoadNeuralModel);
+    RegisterCmd("nn_ls", &CommonHtpEngine::CmdListNeuralModels);
+    RegisterCmd("param_nn", &CommonHtpEngine::CmdNNParams);
 }
 
 CommonHtpEngine::~CommonHtpEngine()
@@ -90,6 +98,116 @@ void CommonHtpEngine::NewGame(int width, int height)
     HexHtpEngine::NewGame(width, height);
     m_pe.NewGame(width, height);
     m_se.NewGame(width, height);
+}
+
+void CommonHtpEngine::CmdNNParams(HtpCommand& cmd){
+    if(cmd.NuArg()<=0){
+        //list available nn params
+        cmd <<"\n" 
+            <<"[string] min_q_combine_weight " << m_nn->m_min_q_combine_weight <<"\n"
+            <<"[string] q_weight_to_p " << m_nn->m_q_weight_to_p <<"\n"
+            <<"[string] product_propagate_weight " << m_nn->m_product_propagate_weight 
+            <<"\n";
+    } else if(cmd.NuArg()==2){
+        std::string name=cmd.Arg(0);
+        if(name=="min_q_combine_weight"){
+            double weight=cmd.ArgMinMax<double>(1, 0.0, 1.0);
+            m_nn->m_min_q_combine_weight=weight;
+        } 
+        else if(name=="q_weight_to_p"){
+            double weight=cmd.ArgMinMax<double>(1, 0.0, 1.0);
+            m_nn->m_q_weight_to_p=weight;
+        } else if(name=="product_propagate_weight"){
+            double weight=cmd.ArgMinMax<double>(1, 0.0, 1.0);
+            m_nn->m_product_propagate_weight=weight;
+        }
+        else {
+            cmd <<" unsupported nn param\n";
+        }
+
+    } else {
+        cmd <<"too few or too many parameters\n";
+    }
+}
+
+//----
+/*
+ * Only supports Square board
+ * evaluate by neural net
+ * note that move coversion is different from Benzene has adopted!
+ * i.e., x=p/MAX_WIDTH, y=p%MAX_WIDTH
+ */
+void CommonHtpEngine::CmdNeuralEvaluate(HtpCommand& cmd, bool asPspairs)
+{
+    bitset_t black_played=m_game.Board().GetPlayed(BLACK);
+    bitset_t white_played=m_game.Board().GetPlayed(WHITE);
+    HexColor toplay=m_game.Board().WhoseTurn();
+    size_t boardsize= static_cast<size_t >(m_game.Board().Width());
+    if (!asPspairs)
+        cmd<<"boardsize:"<<boardsize<<", toplay:"<<HexColorUtil::toString(toplay)<<"\n";
+    std::vector<float> prob_score(boardsize*boardsize);
+    std::vector<float> qValues(boardsize*boardsize);
+    float state_value=m_nn->evaluate(black_played, white_played, toplay, prob_score, qValues, static_cast<int>(boardsize));
+    if (!asPspairs)
+        cmd<<"state_value:"<<state_value<<"; p, q are (only moves p_i >=0.01): \n";
+    int count=1;
+    for (int i = 0; i < boardsize*boardsize; ++i) {
+        int x, y;
+        x=i/boardsize;
+        y=i%boardsize;
+        HexPoint p=HexPointUtil::coordsToPoint(x,y);
+        if(black_played.test(p) || white_played.test(p)){
+            continue;
+        }
+        if (!asPspairs && prob_score[i] < 0.01)
+            continue;
+		cmd<<' '<<HexPointUtil::ToString(p)<<' '<<std::setprecision(2)<<std::fixed<<prob_score[i]<<"@"<<qValues[i];
+        if (!asPspairs && count%10==0) cmd <<"\n";
+    }
+    cmd<<"\n";
+}
+
+void CommonHtpEngine::CmdNeuralEvaluate(HtpCommand &cmd)
+{
+	CmdNeuralEvaluate(cmd, false);
+}
+
+void CommonHtpEngine::CmdNeuralEvaluateActions(HtpCommand& cmd)
+{
+	CmdNeuralEvaluate(cmd, true);
+}
+
+void CommonHtpEngine::CmdListNeuralModels(HtpCommand &cmd) {
+    if(cmd.NuArg() == 0){
+        cmd<<"Loaded neural net: "<<m_nn->m_neural_model_path<<"\n";
+        cmd<<"Use nn_load nn_model for new model, note nn_model should be a full path or just model name if it is available in share/nn/\n";
+        cmd<<"List available nn models at share/nn/\n";
+        boost::filesystem::path dir = std::string(ABS_TOP_SRCDIR)+"/share/nn/";
+        boost::filesystem::recursive_directory_iterator it(dir), end;
+        for (auto& entry : boost::make_iterator_range(it, end)) {
+            if (is_regular(entry)) {
+                cmd<<entry.path().filename().c_str() <<"\n";
+            }
+        }
+    }
+}
+
+void CommonHtpEngine::CmdLoadNeuralModel(HtpCommand &cmd) {
+    if(cmd.NuArg()==0){
+        cmd<<"\nloaded neural net: "<<m_nn->m_neural_model_path<<"\n";
+        cmd<<"use nn_load path_to_model to load new neural model\n";
+        return;
+    }
+    cmd.CheckNuArg(1);
+    std::string model_name=cmd.Arg(0);
+    boost::filesystem::path p(model_name);
+    if(p.is_relative()){
+        model_name = std::string(ABS_TOP_SRCDIR)+"/share/nn/" + model_name;
+    }
+    std::ifstream infile(model_name);
+    if (infile.good()) 
+        m_nn->load_nn_model(model_name);
+    else cmd <<"nn model does not exist!\n";
 }
 
 //----------------------------------------------------------------------------
@@ -112,7 +230,13 @@ void CommonHtpEngine::CmdAnalyzeCommands(HtpCommand& cmd)
         "pspairs/Show TwoDistance/eval-twod %c\n"
         "string/Show Resist/eval-resist %c\n"
         "pspairs/Show Cell Energy/eval-resist-cells %c\n"
-        "none/Add Fillin to Sgf/add-fillin-to-sgf %f %f\n";
+        "none/Add Fillin to Sgf/add-fillin-to-sgf %f %f\n"
+        "none/NN Load/nn_load %f\n"
+        "string/NN List Models/nn_ls\n"
+        "string/NN Evaluate/nn_evaluate\n"
+        "pspairs/NN Evaluate actions/nn_evaluate_actions\n"
+        "string/NN Params/param_nn\n"
+        ;
     m_playerEnvCommands.AddAnalyzeCommands(cmd, "player");
     m_solverEnvCommands.AddAnalyzeCommands(cmd, "solver");
     m_vcCommands.AddAnalyzeCommands(cmd);
@@ -127,8 +251,8 @@ void CommonHtpEngine::CmdLicense(HtpCommand& cmd)
         BenzeneEnvironment::Get().GetProgram().GetName() << " " <<
         BenzeneEnvironment::Get().GetProgram().GetVersion() << " " <<
         BenzeneEnvironment::Get().GetProgram().GetDate() << "\n"
-        "Copyright (C) 2007-2010 by the authors of the Benzene project.\n"
-        "See http://benzene.sourceforge.net for information about benzene.\n"
+        "Copyright (C) 2007-2018 by the authors of the Benzene project.\n"
+        "neural-benzene, see http://benzene.sourceforge.net for information about benzene 2011.\n"
         "Benzene comes with NO WARRANTY to the extent permitted by law.\n"
         "This program is free software; you can redistribute it and/or\n"
         "modify it under the terms of the GNU Lesser General Public License\n"

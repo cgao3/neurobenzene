@@ -125,7 +125,7 @@ public:
     void ExecutePlayout(SgMove move);
    
     bool GenerateAllMoves(SgUctValue count, std::vector<SgUctMoveInfo>& moves,
-                          SgUctProvenType& provenType);
+                          SgUctProvenType& provenType, SgUctValue& expansionNodeValueEstimate);
 
     SgMove GeneratePlayoutMove(bool& skipRaveUpdate);
     
@@ -178,6 +178,10 @@ public:
     HexPoint GetLastMovePlayed() const;
 
     HexColor ColorToPlay() const;
+
+    //float GetNeuroValueEstimate() const;
+
+    //void SetNeuroValueEstimate(float v);
 
 private:
     /** Assertion handler to dump the state of a MoHexThreadState. */
@@ -233,6 +237,9 @@ private:
     bool m_usingKnowledge;
 
     HexColor m_toPlay;
+
+    /**neural net value estimation [0,1] */
+    //float m_nn_value_estimate;
 
     bitset_t ComputeKnowledge(SgUctProvenType& provenType);
 

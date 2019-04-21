@@ -52,6 +52,8 @@ struct SgUctMoveInfo
 
     float m_gamma;
 
+    float m_neuroActionValue;
+
     SgUctMoveInfo();
 
     SgUctMoveInfo(SgMove move);
@@ -66,7 +68,8 @@ inline SgUctMoveInfo::SgUctMoveInfo()
       m_raveValue(0),
       m_raveCount(0),
       m_prior(0.0),
-      m_gamma(0.0)
+      m_gamma(0.0),
+      m_neuroActionValue(0.0)
 { }
 
 inline SgUctMoveInfo::SgUctMoveInfo(SgMove move)
@@ -76,7 +79,8 @@ inline SgUctMoveInfo::SgUctMoveInfo(SgMove move)
       m_raveValue(0),
       m_raveCount(0),
       m_prior(0.0),
-      m_gamma(0.0)
+      m_gamma(0.0),
+      m_neuroActionValue(0.0)
 { }
 
 inline SgUctMoveInfo::SgUctMoveInfo(SgMove move, SgUctValue value, SgUctValue count,
@@ -87,7 +91,8 @@ inline SgUctMoveInfo::SgUctMoveInfo(SgMove move, SgUctValue value, SgUctValue co
       m_raveValue(raveValue),
       m_raveCount(raveCount),
       m_prior(0.0),
-      m_gamma(0.0)
+      m_gamma(0.0),
+      m_neuroActionValue(0.0)
 { }
 
 //----------------------------------------------------------------------------
@@ -233,6 +238,10 @@ public:
 
     void SetPrior(SgUctValue prior);
 
+    SgUctValue NeuroActionValue() const;
+
+    void SetNeuroActionValue(SgUctValue neuroActionValue);
+
     SgUctValue Gamma() const;
 
     void SetGamma(SgUctValue gamma);
@@ -285,6 +294,8 @@ private:
     volatile SgUctValue m_prior;
 
     volatile SgUctValue m_gamma;
+
+    volatile SgUctValue m_neuroActionValue;
 };
 
 inline SgUctNode::SgUctNode(const SgUctMoveInfo& info)
@@ -297,7 +308,8 @@ inline SgUctNode::SgUctNode(const SgUctMoveInfo& info)
       m_provenType(SG_NOT_PROVEN),
       m_virtualLossCount(0),
       m_prior(info.m_prior),
-      m_gamma(info.m_gamma)
+      m_gamma(info.m_gamma),
+      m_neuroActionValue(info.m_neuroActionValue)
 {
     // m_firstChild is not initialized, only defined if m_nuChildren > 0
 }
@@ -320,6 +332,7 @@ inline void SgUctNode::MergeResults(const SgUctNode& node)
         m_raveValue.Add(node.m_raveValue.Mean(), node.m_raveValue.Count());
     m_prior = node.Prior();
     m_gamma = node.Gamma();
+    m_neuroActionValue=node.NeuroActionValue();
 }
 
 inline void SgUctNode::RemoveGameResult(SgUctValue eval)
@@ -358,6 +371,7 @@ inline void SgUctNode::CopyDataFrom(const SgUctNode& node)
     m_virtualLossCount = node.m_virtualLossCount;
     m_prior = node.m_prior;
     m_gamma = node.m_gamma;
+    m_neuroActionValue=node.m_neuroActionValue;
 }
 
 inline const SgUctNode* SgUctNode::FirstChild() const
@@ -496,6 +510,14 @@ inline SgUctValue SgUctNode::Gamma() const
 inline void SgUctNode::SetGamma(SgUctValue gamma)
 {
     m_gamma = gamma;
+}
+
+inline SgUctValue SgUctNode::NeuroActionValue() const {
+    return m_neuroActionValue;
+}
+
+inline void SgUctNode::SetNeuroActionValue(SgUctValue qValue){
+    m_neuroActionValue = qValue;
 }
 
 inline SgUctValue SgUctNode::RaveCount() const

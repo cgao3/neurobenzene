@@ -6,12 +6,14 @@
 #include "MoHexThreadState.hpp"
 #include "MoHexPriorKnowledge.hpp"
 #include "MoHexSearch.hpp"
+#include <future>
+#include <random>
 
 using namespace benzene;
 
 //----------------------------------------------------------------------------
 
-MoHexPriorKnowledge::MoHexPriorKnowledge(const MoHexThreadState& state) 
+MoHexPriorKnowledge::MoHexPriorKnowledge(const MoHexThreadState& state)
     : m_state(state)
 {
 }
@@ -20,12 +22,30 @@ MoHexPriorKnowledge::~MoHexPriorKnowledge()
 {
 }
 
-void MoHexPriorKnowledge::ProcessPosition(std::vector<SgUctMoveInfo>& moves,
+SgUctValue MoHexPriorKnowledge::ProcessPosition(std::vector<SgUctMoveInfo>& moves,
                                           const HexPoint lastMove,
                                           const bool doPruning)
 {
     if (m_state.Search().ProgressiveBiasConstant() == 0.0f)
-        return;
+        return 0.5;
+
+    float dirichlet_noise=m_state.Search().RootDirichletPrior();
+    float combine_weight=0.25;
+
+ 	bitset_t black_played_stones=m_state.State().Position().GetPlayed(BLACK) &
+                                 m_state.State().Position().Const().GetCells();
+    bitset_t white_played_stones=m_state.State().Position().GetPlayed(WHITE) &
+                                 m_state.State().Position().Const().GetCells();
+
+    int boardsize=m_state.State().Position().Width();
+    std::vector<float> nn_score(boardsize*boardsize);
+    std::vector<float> q_values(boardsize*boardsize);
+    //m_state.Search().GetNNEvaluator().evaluate(black_played_stones, white_played_stones,m_state.State().ToPlay(), nn_score);
+
+    auto evaFuture=std::async([this, &black_played_stones, &white_played_stones, &nn_score, &q_values, &boardsize]{
+        return this->m_state.Search().GetNNEvaluator().evaluate(black_played_stones,
+                                                         white_played_stones, this->m_state.State().ToPlay(), nn_score, q_values, boardsize);
+    });
 
     bitset_t safe, pruned, consider;
     float totalGamma = 0.0f;
@@ -133,17 +153,46 @@ void MoHexPriorKnowledge::ProcessPosition(std::vector<SgUctMoveInfo>& moves,
             }            
         }
     }
-    if (totalGamma < 1e-6)
-        return;
+	SgUctValue value_estimate=evaFuture.get();
+    //m_state.SetNeuroValueEstimate(value_estimate);
+    //std::cout<<"Get value estimate: "<<value_estimate<<" \n";
+    //if (totalGamma < 1e-6)
+    //    return value_estimate;
+
+    typedef std::mt19937 G;
+    typedef std::gamma_distribution<> D;
+    G g(time(0));  // seed if you want with integral argument
+    // http://en.wikipedia.org/wiki/Gamma_distribution
+    double theta = 1;
+    D d(dirichlet_noise+1e-8, theta);
+    float cul=0.0;
+    float arr[moves.size()];
+
+    for(std::size_t i=0;i<moves.size();i++){
+        float prob=d(g);
+        cul +=prob;
+        arr[i]=prob;
+    }
+
     for (std::size_t i = 0; i < moves.size(); ++i)
     {
         const float gamma = moveGamma[moves[i].m_move];
-        const float prob = gamma / totalGamma;
+        float prob;// = gamma / totalGamma;
+        //changed by Chao Gao
+        HexPoint sgMove=static_cast<HexPoint>(moves[i].m_move);
+        int x,y;
+        HexPointUtil::pointToCoords(sgMove, x, y);
+        prob=nn_score[x*boardsize+y];
+        if(dirichlet_noise>0.0)
+            prob=0.25f*(arr[i]/cul)+0.75f*prob;
+        //std::cout<<HexPointUtil::ToString(sgMove)<<":"<<prob<<"\t";
+        moves[i].m_neuroActionValue=q_values[x*boardsize+y];
         moves[i].m_prior = prob;
         moves[i].m_gamma = gamma;
-	moves[i].m_raveValue = 0.5f;
-	moves[i].m_raveCount = 8;
+		moves[i].m_raveValue = 0.5f;
+		moves[i].m_raveCount = 8;
     }
+    return value_estimate;
 }
 
 //----------------------------------------------------------------------------

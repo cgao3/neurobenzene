@@ -9,7 +9,7 @@
 #include "MoHexEngine.hpp"
 #include "MoHexPlayer.hpp"
 #include "MoHexProgram.hpp"
-
+#include "iostream"
 using namespace benzene;
 
 //----------------------------------------------------------------------------

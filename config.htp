@@ -1,0 +1,28 @@
+# Configuration file used during cg2010 olympiad (kanazawa).
+# MoHex was run on muriel-c1, a 16c machine with 64GB of memory.
+# The book used during the tournament was: 11x11-book.db.35k.
+param_game allow_swap 1
+param_game on_little_golem 1
+param_mohex max_memory 28000000000
+param_mohex max_time 600
+param_mohex max_games 99999999
+param_mohex use_time_management 0
+param_mohex reuse_subtree 0
+param_mohex use_parallel_solver 1
+#param_mohex use_livegfx 1
+param_mohex ponder 0
+param_mohex fillin_map_bits 20
+param_mohex num_threads 4
+param_mohex lock_free 1
+param_dfpn threads 2
+param_dfpn use_nn 1
+param_dfpn widening_base 0
+param_dfpn widening_factor 0.25
+param_dfpn thread_work 100
+param_dfpn epsilon 0.25
+param_dfpn tt_size 4194304
+param_mohex progressive_bias 5.0
+param_mohex uct_bias_constant 0.0
+param_mohex use_rave 1
+nn_load 13x13train7.txt.out-post.ckpt-1.const.pb
+param_mohex expand_threshold 0

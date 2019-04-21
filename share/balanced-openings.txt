@@ -1,0 +1,17 @@
+11x11 b2
+11x11 j10
+#b2,j10 slightly lose?
+11x11 a2
+11x11 k10
+#a2,k10 slightly lose?
+
+13x13 a3              
+13x13 m11
+#a3,m11 slightly win?
+13x13 a2
+#a2 slightly lose?
+13x13 k2 
+13x13 c12
+#k2,c12 slightly win?
+13x13 b2
+

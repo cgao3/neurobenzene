@@ -254,7 +254,7 @@ void MoHexThreadState::Execute(SgMove sgmove)
 
 bool MoHexThreadState::GenerateAllMoves(SgUctValue count, 
                                         std::vector<SgUctMoveInfo>& moves,
-                                        SgUctProvenType& provenType)
+                                        SgUctProvenType& provenType, SgUctValue &expansionNodeValueEstimate)
 {
     moves.clear();
     if (m_atRoot)
@@ -266,7 +266,7 @@ bool MoHexThreadState::GenerateAllMoves(SgUctValue count,
         if (count == 0)
         {
             m_sharedData->treeStatistics.priorPositions++;
-            m_priorKnowledge.ProcessPosition(moves, m_lastMovePlayed, false);
+            expansionNodeValueEstimate=m_priorKnowledge.ProcessPosition(moves, m_lastMovePlayed, false);
         }
         return false;
     }
@@ -286,7 +286,7 @@ bool MoHexThreadState::GenerateAllMoves(SgUctValue count,
             size_t oldSize = moves.size();
             m_sharedData->treeStatistics.priorPositions++;
             m_sharedData->treeStatistics.priorMoves += oldSize;
-            m_priorKnowledge.ProcessPosition(moves, m_lastMovePlayed,
+            expansionNodeValueEstimate=m_priorKnowledge.ProcessPosition(moves, m_lastMovePlayed,
                                              m_search.PriorPruning());
             m_sharedData->treeStatistics.priorMovesAfter += moves.size();
 
@@ -671,17 +671,33 @@ void MoHexThreadState::StartPlayout(const HexState& state,
 SgMove MoHexThreadState::GeneratePlayoutMove(bool& skipRaveUpdate)
 {
     skipRaveUpdate = false;
+    skipRaveUpdate = true;
     const ConstBoard& cbrd = m_board.Const();
 
     // Uncomment line below to stop playout when win detected.
-    // if (m_board.GameOver())
+    //if (m_board.GameOver())
     //     return SG_NULLMOVE;
 
     // Stop when board is filled.
     if (m_board.NumMoves() == cbrd.Width() * cbrd.Height())
         return SG_NULLMOVE;
 
-    SgPoint move = m_policy.GenerateMove(ColorToPlay(), m_lastMovePlayed);
+    bool use_nn_playout=false;
+    SgPoint move;
+    if (!use_nn_playout)
+        move= m_policy.GenerateMove(ColorToPlay(), m_lastMovePlayed); //default playout
+    else {
+        //start NN playout Move, by Chao Gao
+        bitset_t black_played=m_state->Position().GetPlayed(BLACK) &
+                              m_state->Position().Const().GetCells();
+        bitset_t white_played=m_state->Position().GetPlayed(WHITE) &
+                              m_state->Position().Const().GetCells();
+        std::vector<float> nn_score;
+        int boardsize=m_state->Position().Width();
+        nn_score.resize(boardsize*boardsize);
+        //move=m_search.GetNNEvaluator().generatePlayoutMove(black_played, white_played, ColorToPlay(), nn_score, boardsize);
+        //end (Chao, Neural net playout move)
+    }
     SG_ASSERT(move != SG_NULLMOVE);
     return move;
 }

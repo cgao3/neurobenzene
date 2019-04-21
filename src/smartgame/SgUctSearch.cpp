@@ -285,6 +285,8 @@ SgUctSearch::SgUctSearch(SgUctThreadStateFactory* threadStateFactory,
       m_raveWeightFinal(20000),
       m_progressiveBiasConstant(0.0f),
       m_extendUnstableSearch(true),
+      m_use_playout_const(1.0),
+      m_ditherTemperature(1.0),
       m_virtualLoss(false),
       m_lazyDelete(false),
       m_logFileName("uctsearch.log"),
@@ -519,12 +521,15 @@ void SgUctSearch::ExpandNode(SgUctThreadState& state, const SgUctNode& node)
 const SgUctNode*
 SgUctSearch::FindBestChild(const SgUctNode& node,
                            SgUctMoveSelect moveSelect,
-                           const vector<SgMove>* excludeMoves) const
+                           const vector<SgMove>* excludeMoves,
+                           const bool moveSelectDithering,
+                           std::vector<std::pair<SgMove, SgUctValue> >* moveProbs) const
 {
     if (! node.HasChildren())
         return 0;
     const SgUctNode* bestChild = 0;
     SgUctValue bestValue = 0;
+    SgUctValue cum_sum=0;
     for (SgUctChildIterator it(m_tree, node); it; ++it)
     {
         const SgUctNode& child = *it;
@@ -568,22 +573,97 @@ SgUctSearch::FindBestChild(const SgUctNode& node,
             SG_ASSERT(false);
             value = SG_UCTMOVESELECT_VALUE;
         }
+        cum_sum = cum_sum + pow(value, 1.0/DitherTemperature());
         if (bestChild == 0 || value > bestValue)
         {
             bestChild = &child;
             bestValue = value;
         }
     }
-    return bestChild;
+    if(!moveSelectDithering && moveProbs==0){
+        return bestChild;
+    }
+
+    //otherwise do another iterate, select a dithered best move
+    float cum_sum2=0.0;
+    float rand_num= ((float) rand() / (RAND_MAX *1.0f));
+    const SgUctNode* selectedChild = 0;
+    for (SgUctChildIterator it(m_tree, node); it; ++it)
+    {
+        const SgUctNode& child = *it;
+        if (excludeMoves != 0)
+        {
+            vector<SgMove>::const_iterator begin = excludeMoves->begin();
+            vector<SgMove>::const_iterator end = excludeMoves->end();
+            if (find(begin, end, child.Move()) != end)
+                continue;
+        }
+        if (  ! child.HasMean()
+              && ! (  (  moveSelect == SG_UCTMOVESELECT_BOUND
+                         || moveSelect == SG_UCTMOVESELECT_ESTIMATE
+                      )
+                      && m_rave
+                      && child.HasRaveValue()
+        )
+                )
+            continue;
+        if (child.IsProvenLoss()) // Always choose winning move!
+        {
+            bestChild = &child;
+            break;
+        }
+        SgUctValue value;
+        switch (moveSelect)
+        {
+            case SG_UCTMOVESELECT_VALUE:
+                value = InverseEstimate((SgUctValue)child.Mean());
+                break;
+            case SG_UCTMOVESELECT_COUNT:
+                value = child.MoveCount();
+                break;
+            case SG_UCTMOVESELECT_BOUND:
+                value = GetBound(m_rave, node, child);
+                break;
+            case SG_UCTMOVESELECT_ESTIMATE:
+                value = GetValueEstimate(m_rave, child);
+                break;
+            default:
+                SG_ASSERT(false);
+                value = SG_UCTMOVESELECT_VALUE;
+        }
+        float prob=(float) (pow(value, 1.0/DitherTemperature())/cum_sum);
+        cum_sum2 =cum_sum2 + prob;
+        if(moveProbs!=0) moveProbs->push_back(std::make_pair(child.Move(), prob));
+        if(selectedChild ==0 && cum_sum2>=rand_num){
+            selectedChild = &child;
+        }
+        if (bestChild == 0 || value > bestValue)
+        {
+            bestChild = &child;
+            bestValue = value;
+        }
+    }
+
+    if(!moveSelectDithering){
+        return bestChild;
+    }
+    if(selectedChild==0)
+        return bestChild;
+    else
+        return selectedChild;
 }
 
-void SgUctSearch::FindBestSequence(vector<SgMove>& sequence) const
+void SgUctSearch::FindBestSequence(vector<SgMove>& sequence, const bool moveSelectDither,
+                                   std::vector<std::pair<SgMove, SgUctValue> >* moveProbs) const
 {
     sequence.clear();
     const SgUctNode* current = &m_tree.Root();
+    bool atRoot=true;
     while (true)
     {
-        current = FindBestChild(*current, m_moveSelect);
+        if(atRoot) current = FindBestChild(*current, m_moveSelect, 0, moveSelectDither, moveProbs);
+        else current = FindBestChild(*current, m_moveSelect); //only the root level select with dithering
+        atRoot=false;
         if (current == 0)
             break;
         sequence.push_back(current->Move());
@@ -601,7 +681,8 @@ void SgUctSearch::GenerateAllMoves(std::vector<SgUctMoveInfo>& moves)
     SgUctThreadState& state = ThreadState(0);
     state.StartSearch();
     SgUctProvenType type;
-    state.GenerateAllMoves(0, moves, type);
+    SgUctValue valueEstimate;
+    state.GenerateAllMoves(0, moves, type, valueEstimate);
 }
 
 SgUctValue SgUctSearch::GetBound(bool useRave, const SgUctNode& node,
@@ -613,37 +694,23 @@ SgUctValue SgUctSearch::GetBound(bool useRave, const SgUctNode& node,
     {
         posCount += SgUctValue(virtualLossCount);
     }
-    return GetBound(useRave, true, Log(posCount), child);
+    return GetBound(useRave, true, posCount, Log(posCount), child);
 }
 
 SgUctValue SgUctSearch::GetBound(bool useRave, bool useBiasTerm,
-                                 SgUctValue logPosCount, 
+                                 SgUctValue posCount, SgUctValue logPosCount,
                                  const SgUctNode& child) const
 {
-    SgUctValue value;
+    SgUctValue value = GetValueEstimateRave(useRave, child, logPosCount);
+
+    //the following is modified by Chao Gao
+    float moveCount = child.MoveCount() + child.VirtualLossCount() + 1.0f;
+    float puctValue = m_progressiveBiasConstant * child.Prior();
     if (useRave)
-        value = GetValueEstimateRave(child, logPosCount);
+        puctValue /= sqrt(moveCount);
     else
-    {
-        // OLD:
-        // value = GetValueEstimate(false, child);
-        
-        // NEW: 
-        // Better first-play-urgency handling when rave is off:
-        // Exploit a child with mean > first-play-urgency if such a
-        // child exists; otherwise, select 'best' unexplored
-        // child. This will pick the the child with highest
-        // child.Prior() value.
-        if (! child.HasMean())
-            value = m_firstPlayUrgency;
-        else
-            value = GetValueEstimate(false, child);
-    }
-
-    const SgUctValue sqrtMoveCount =
-        sqrt(child.MoveCount() + child.VirtualLossCount() + 1.0f);
-
-    value += m_progressiveBiasConstant * child.Prior() / sqrtMoveCount;
+        puctValue *= sqrt(posCount) / moveCount;
+    value += puctValue;
 
     if (m_biasTermConstant == 0.0 || ! useBiasTerm)
         return value;
@@ -734,7 +801,7 @@ SgUctValue SgUctSearch::GetValueEstimate(bool useRave, const SgUctNode& child) c
     Previously there were more estimators than move value and RAVE value,
     and in the future there may be again. GetValueEstimate() is easier to
     extend, this function is more optimized for the special case. */
-SgUctValue SgUctSearch::GetValueEstimateRave(const SgUctNode& child,
+SgUctValue SgUctSearch::GetValueEstimateRave(bool useRave, const SgUctNode& child,
                                              SgUctValue logPosCount) const
 {
     SG_ASSERT(m_rave);
@@ -744,24 +811,26 @@ SgUctValue SgUctSearch::GetValueEstimateRave(const SgUctNode& child,
     {
         uctStats.Initialize(child.Mean(), child.MoveCount());
     }
-    SgUctStatistics raveStats;
-    if (child.HasRaveValue())
-    {
-        raveStats.Initialize(child.RaveValue(), child.RaveCount());
-    }
     int virtualLossCount = child.VirtualLossCount();
     if (virtualLossCount > 0)
-    {
         uctStats.Add(InverseEstimate(0), SgUctValue(virtualLossCount));
-        raveStats.Add(0, SgUctValue(virtualLossCount));
+	SgUctStatistics raveStats;
+    if (useRave)
+    {
+	    if (child.HasRaveValue())
+	    {
+	        raveStats.Initialize(child.RaveValue(), child.RaveCount());
+	    }
+	    if (virtualLossCount > 0)
+	        raveStats.Add(0, SgUctValue(virtualLossCount));
+	    useRave = raveStats.IsDefined();
     }
-    bool hasRave = raveStats.IsDefined();
     
     if (uctStats.IsDefined())
     {
         SgUctValue moveValue = InverseEstimate((SgUctValue)uctStats.Mean())
             + m_uctBiasConstant * sqrt(logPosCount / uctStats.Count());
-        if (hasRave)
+        if (useRave)
         {
             SgUctValue moveCount = uctStats.Count();
             SgUctValue raveCount = raveStats.Count();
@@ -782,7 +851,7 @@ SgUctValue SgUctSearch::GetValueEstimateRave(const SgUctNode& child,
             value = moveValue;
         }
     }
-    else if (hasRave)
+    else if (useRave)
         value = raveStats.Mean();
     else
         value = m_firstPlayUrgency;
@@ -942,7 +1011,9 @@ void SgUctSearch::PlayGame(SgUctThreadState& state, GlobalLock* lock)
     SgUctGameInfo& info = state.m_gameInfo;
     info.Clear(m_numberPlayouts);
     bool isTerminal;
-    bool abortInTree = ! PlayInTree(state, isTerminal);
+    SgUctValue expandingNodeValueEstimate=-2.0; //
+    bool abortInTree = ! PlayInTree(state, isTerminal, expandingNodeValueEstimate);
+    //expandingNodeValueEstimate should become [0,1] if a node is expanded
 
     // The playout phase is always unlocked
     if (lock != 0)
@@ -979,6 +1050,19 @@ void SgUctSearch::PlayGame(SgUctThreadState& state, GlobalLock* lock)
     else 
     {
         state.StartPlayouts();
+        //std::cout<<"in sguctsearch, value_estimate:"<<value_estimation<<"\n";
+        //use (m_inTreeSequence.size()-1)%2!=0 is equivalent 
+        //1.the leaf node is a child of a just expanded node! 
+        if(expandingNodeValueEstimate>-2.0 && info.m_inTreeSequence.size()%2==0)
+            expandingNodeValueEstimate=InverseEval(expandingNodeValueEstimate);
+        SgUctValue value_estimate=expandingNodeValueEstimate;
+        //2.there is no node expansion, then use leaf node's stored action_value
+        //comment or disable this if part to use playout
+        if( value_estimate < -1.9999){ //not expanded node, use action-value
+            value_estimate=state.m_gameInfo.m_nodes.back()->NeuroActionValue();
+            if(info.m_inTreeSequence.size()%2!=0) value_estimate=InverseEval(value_estimate); 
+            //std::cout<<"in sguctsearch, m_neuroActionValue:"<<value_estimate<<"\n";
+        }
         for (size_t i = 0; i < m_numberPlayouts; ++i)
         {
             state.StartPlayout();
@@ -996,6 +1080,8 @@ void SgUctSearch::PlayGame(SgUctThreadState& state, GlobalLock* lock)
             size_t nuMoves = info.m_sequence[i].size();
             if (nuMoves % 2 != 0)
                 eval = InverseEval(eval);
+            if(value_estimate>-2.0) 
+                eval = (m_use_playout_const)*eval + (1.0-m_use_playout_const)*value_estimate;
             info.m_aborted[i] = abort;
             info.m_eval[i] = eval;
             state.EndPlayout();
@@ -1051,7 +1137,7 @@ void SgUctSearch::PropagateProvenStatus(const vector<const SgUctNode*>& nodes)
     @param[out] isTerminal Was the sequence terminated because of a real
     terminal position (GenerateAllMoves() returned an empty list)?
     @return @c false, if game was aborted due to maximum length */
-bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal)
+bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal, SgUctValue& expandingNodeValueEstimate)
 {
     vector<SgMove>& sequence = state.m_gameInfo.m_inTreeSequence;
     vector<const SgUctNode*>& nodes = state.m_gameInfo.m_nodes;
@@ -1082,7 +1168,7 @@ bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal)
             SgUctProvenType provenType = SG_NOT_PROVEN;
             bool expandNode = current->MoveCount() >= m_expandThreshold;
             state.GenerateAllMoves((expandNode ? 0 : -1), state.m_moves, 
-                                   provenType);
+                                   provenType, expandingNodeValueEstimate);
             if (current == root)
                 ApplyRootFilter(state.m_moves);
             if (provenType != SG_NOT_PROVEN)
@@ -1118,7 +1204,7 @@ bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal)
             SgUctProvenType provenType = SG_NOT_PROVEN;
             bool truncate = state.GenerateAllMoves(current->KnowledgeCount(), 
                                                    state.m_moves,
-                                                   provenType);
+                                                   provenType, expandingNodeValueEstimate);
             if (current == root)
                 ApplyRootFilter(state.m_moves);
             CreateChildren(state, *current, truncate);
@@ -1163,7 +1249,7 @@ bool SgUctSearch::PlayInTree(SgUctThreadState& state, bool& isTerminal)
 
                     state.m_moves.clear();
                     SgUctProvenType provenType = SG_NOT_PROVEN;
-                    state.GenerateAllMoves(-1, state.m_moves, provenType);
+                    state.GenerateAllMoves(-1, state.m_moves, provenType, expandingNodeValueEstimate);
 
                     if (old_current == root)
                         ApplyRootFilter(state.m_moves);
@@ -1227,7 +1313,8 @@ SgUctValue SgUctSearch::Search(SgUctValue maxGames, double maxTime,
                                vector<SgMove>& sequence,
                                const vector<SgMove>& rootFilter,
                                SgUctTree* initTree,
-                               SgUctEarlyAbortParam* earlyAbort)
+                               SgUctEarlyAbortParam* earlyAbort,
+                               const bool moveSelectDither, std::vector<std::pair<SgMove, SgUctValue> >* moveProbs)
 {
     m_timer.Start();
     m_rootFilter = rootFilter;
@@ -1284,7 +1371,8 @@ SgUctValue SgUctSearch::Search(SgUctValue maxGames, double maxTime,
         m_statistics.m_gamesPerSecond = GamesPlayed() / m_statistics.m_time;
     if (m_logGames)
         m_log.close();
-    FindBestSequence(sequence);
+    //std::cout<<"find best move moveSelectDither? "<<moveSelectDither<<"\n";
+    FindBestSequence(sequence, moveSelectDither, moveProbs);
     return (m_tree.Root().MoveCount() > 0) ? (SgUctValue)m_tree.Root().Mean() : (SgUctValue)0.5;
 }
 
@@ -1350,7 +1438,8 @@ SgPoint SgUctSearch::SearchOnePly(SgUctValue maxGames, double maxTime,
     vector<SgUctMoveInfo> moves;
     SgUctProvenType provenType;
     state.GameStart();
-    state.GenerateAllMoves(0, moves, provenType);
+    SgUctValue expansionNodeValueEstimate;
+    state.GenerateAllMoves(0, moves, provenType, expansionNodeValueEstimate);
     vector<SgUctStatistics> statistics(moves.size());
     SgUctValue games = 0;
     m_timer.Start();
@@ -1436,7 +1525,9 @@ const SgUctNode& SgUctSearch::SelectChild(int& randomizeCounter,
         const SgUctNode& child = *it;
         if (! child.IsProvenWin()) // Avoid losing moves
         {
-            SgUctValue bound = GetBound(useRave, useBiasTerm, logPosCount, child);
+            SgUctValue bound = GetBound(useRave, useBiasTerm, posCount, logPosCount, child);
+            //changed to the following by Chao Gao
+            //SgUctValue bound = GetBound(useRave, useBiasTerm, posCount, child);
             // Compare bound to best bound using a not too small epsilon
             // because the unit tests rely on the fact that the first child is
             // chosen if children have the same bounds and on some platforms

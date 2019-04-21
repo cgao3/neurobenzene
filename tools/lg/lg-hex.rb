@@ -1,5 +1,5 @@
 #!/usr/bin/ruby
-require 'tools/lg/lg-interface'
+require './tools/lg/lg-interface'
 require 'open3'
 
 #class GTPClient
@@ -68,16 +68,23 @@ class BenzeneBot < LittleGolemInterface
         moves.map! do |m|
             m.upcase!
             x=m[0].chr
-            y=m[1]-64
-            m=x+y.to_s
+            y=m[1].ord - 64
+            m = x + y.to_s
+        end
+        #if White 'Swap', disable swap choice in first player genmove 
+        if @swap
+            return true
+        else
+            return false
         end
     end
     def parse_make_moves(gameids)
         gameids.each do |g|
             if (game = get_game(g))
+		self.log("Game game: "+game)
                 size = game.scan(/SZ\[(.+?)\]/).flatten[0].to_i
                 moves = game.scan(/;[B|W]\[(.+?)\]/).flatten
-                self.log("Game #{g}, size #{size}: #{moves.join(' ')}")
+                self.log("Game #{g}, size #{size}, moves: #{moves.join(' ')}")
                 newmove = self.genmove(size, moves)
                 self.log("Game #{g}, size #{size}: response #{newmove}")
                 self.post_move(g, translate_Hex2LG(newmove))

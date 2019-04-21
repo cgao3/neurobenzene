@@ -50,7 +50,7 @@ public:
     /** Returns reference to ConstBoard. */
     const ConstBoard& Const() const;
 
-    /**Returns pointer to ConstBoard (m_ */
+    // better 
     const ConstBoard* ConstPtr() const;
 
     /** Same as Const().width() */
@@ -278,9 +278,10 @@ inline const ConstBoard& StoneBoard::Const() const
 {
     return *m_const;
 }
-    inline const ConstBoard* StoneBoard::ConstPtr() const {
-        return m_const;
-    }
+
+inline const ConstBoard* StoneBoard::ConstPtr() const {
+    return m_const;
+}
 
 inline int StoneBoard::Width() const
 {

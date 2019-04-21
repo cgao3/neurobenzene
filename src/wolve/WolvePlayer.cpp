@@ -60,7 +60,7 @@ WolvePlayer::~WolvePlayer()
 /** Generates a move using WolveSearch. */
 HexPoint WolvePlayer::Search(const HexState& state, const Game& game,
                              HexBoard& brd, const bitset_t& consider,
-                             double maxTime, double& outScore)
+                             double maxTime, double& outScore, std::vector<std::pair<SgMove, double > >* allMoveScores)
 {
     UNUSED(game);
     m_search.SetRootMovesToConsider(consider);

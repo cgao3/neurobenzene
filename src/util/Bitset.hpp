@@ -45,10 +45,15 @@ static const int BITSETSIZE = 384;
 /** Actually need only 196+7 for 14x14. */
 static const int BITSETSIZE = 224;
 
-#else
+#elif defined(SUPPORT_13x13)
 
 /** Actually need only 169+7 for 13x13. */
 static const int BITSETSIZE = 192;
+
+#else
+
+/** Fits 11x11 exactly. */
+static const int BITSETSIZE = 128;
 
 #endif
 

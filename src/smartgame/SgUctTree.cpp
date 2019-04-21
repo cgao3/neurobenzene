@@ -239,12 +239,6 @@ SgUctProvenType SgUctTree::CopySubtree(SgUctTree& target, SgUctNode& targetNode,
                 SgDebug() << "SgUctTree::CopySubtree: Truncated (max time)\n";
             abort = true;
         }
-        if (SgUserAbort())
-        {
-            if (warnTruncate)
-                SgDebug() << "SgUctTree::CopySubtree: Truncated (aborted)\n";
-            abort = true;
-        }
     }
     if (abort)
     {

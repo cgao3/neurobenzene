@@ -52,7 +52,8 @@ MoHexPlayer::MoHexPlayer()
       m_reuse_subtree(true),
       m_ponder(false),
       m_performPreSearch(true),
-      m_useRootData(true)
+      m_useRootData(true),
+      m_dither_threshold(0)
 {
 }
 
@@ -91,13 +92,19 @@ void MoHexPlayer::CopySettingsFrom(const MoHexPlayer& other)
     Search().SetPriorPruning(other.Search().PriorPruning());
     Search().SetExtendUnstableSearch(other.Search().ExtendUnstableSearch());
     Search().SetVCMGamma(other.Search().VCMGamma());
+    SetDitherThreshold(other.GetDitherThreshold());
+    Search().SetRootDirichletPrior(other.Search().RootDirichletPrior());
+    Search().SetUsePlayoutConst(other.Search().UsePlayoutConst());
+    Search().SetDitherTemperature(other.Search().DitherTemperature());
+    Search().SetNNEvaluator(other.Search().GetNNEvaluatorPtr());
 }
 
 //----------------------------------------------------------------------------
 
 HexPoint MoHexPlayer::Search(const HexState& state, const Game& game,
                              HexBoard& brd, const bitset_t& given_to_consider,
-                             double maxTime, double& score)
+                             double maxTime, double& score,
+                             std::vector<std::pair<SgMove, double> >* moveProbs)
 {
     BenzeneAssert(!brd.GetGroups().IsGameOver());
     HexColor color = state.ToPlay();   
@@ -159,8 +166,12 @@ HexPoint MoHexPlayer::Search(const HexState& state, const Game& game,
     std::vector<SgMove> sequence;
     std::vector<SgMove> rootFilter;
     m_search.SetBoard(brd);
+    bool moveSelectDither=false;
+    if(state.Position().NumStones()<=m_dither_threshold){
+        moveSelectDither=true;
+    }
     score = m_search.Search(m_max_games, maxTime, sequence,
-                            rootFilter, initTree, 0);
+                            rootFilter, initTree, 0, moveSelectDither, moveProbs);
 
     // Output stats
     std::ostringstream os;
@@ -172,6 +183,14 @@ HexPoint MoHexPlayer::Search(const HexState& state, const Game& game,
     for (std::size_t i = 0; i < sequence.size(); i++)
         os << ' ' << MoHexUtil::MoveString(sequence[i]);
     os << '\n';
+    os <<"moveselect dithering threshold: " <<m_dither_threshold
+       <<"\t num stones in current state:"<<state.Position().NumStones()<<"\n";
+    if(moveProbs!=0){
+        for(std::pair<SgMove, double> move_score: *moveProbs){
+            os<<static_cast<HexPoint>(move_score.first)<<"@"<<move_score.second<<"\t";
+        }
+        os<<"\n";
+    }
     m_search_statistics = os.str();
     LogInfo() << m_search_statistics << '\n';
 
@@ -304,9 +323,11 @@ SgUctTree* MoHexPlayer::TryReuseSubtree(const MoHexSharedData& oldData,
     // no previous search has been performed.
     const StoneBoard& oldPosition = oldData.rootState.Position();
     const StoneBoard& newPosition = newData.rootState.Position();
-    if (&oldPosition.Const() == 0) // comment by Chao, return the reference of pointer seems to be bad! Const() return & *ConstBoard..
+    if (oldPosition.ConstPtr() == 0){
+        LogInfo()<<"no subtree to reuse since old position not exists\n";
         return 0;
-    if (oldPosition.ConstPtr()==0) //added by Chao
+    }
+    if (&oldPosition.Const() == 0)
         return 0;
     if (oldPosition.Width() != newPosition.Width() ||
         oldPosition.Height() != newPosition.Height())

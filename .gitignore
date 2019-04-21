@@ -1,2 +1,11 @@
-build/*
 *.pyc
+build/*
+*.log
+.idea/*
+tournament/jobs*
+
+cmake-build-debug/*
+closedloop/*.htp
+tools/mergesgf/*
+
+

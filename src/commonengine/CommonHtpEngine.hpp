@@ -13,6 +13,7 @@
 #include "DfsCommands.hpp"
 #include "SolverDB.hpp"
 #include "VCCommands.hpp"
+#include "NeuroEvaluate.hpp"
 
 _BEGIN_BENZENE_NAMESPACE_
 
@@ -67,9 +68,19 @@ public:
     void CmdEvalResistCells(HtpCommand& cmd);
     void CmdAddFillinToSgf(HtpCommand& cmd);
 
+    void CmdNeuralEvaluate(HtpCommand& cmd);
+    void CmdNeuralEvaluateActions(HtpCommand& cmd);
+    void CmdLoadNeuralModel(HtpCommand& cmd);
+    void CmdListNeuralModels(HtpCommand& cmd);
+    void CmdNNParams(HtpCommand& cmd);
+
     // @} // @name
 
 protected:
+
+    /**the neural net */
+    //NNEvaluator m_nn;
+    std::shared_ptr<NNEvaluator> m_nn;
 
     /** Player's environment. */
     HexEnvironment m_pe;
@@ -117,6 +128,8 @@ private:
 
     void RegisterCmd(const std::string& name,
                      GtpCallback<CommonHtpEngine>::Method method);
+
+    void CmdNeuralEvaluate(HtpCommand& cmd, bool asPspairs);
 };
 
 //----------------------------------------------------------------------------

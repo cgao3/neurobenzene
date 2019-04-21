@@ -26,7 +26,7 @@ BenzenePlayer::~BenzenePlayer()
 /** @bug Subtract time spent to here from max_time after each step. */
 HexPoint BenzenePlayer::GenMove(const HexState& state, const Game& game, 
                                 HexBoard& brd, double maxTime, 
-                                double& score)
+                                double& score, std::vector<std::pair<SgMove, double> >* moveProbs)
 {
     HexPoint move = INVALID_POINT;
     bitset_t consider;
@@ -40,7 +40,7 @@ HexPoint BenzenePlayer::GenMove(const HexState& state, const Game& game,
         return move;
 
     LogInfo() << "Best move cannot be determined, must search state.\n";
-    return Search(state, game, brd, consider, maxTime, score);
+    return Search(state, game, brd, consider, maxTime, score, moveProbs);
 }
 
 /** Finds inferior cells, builds vcs. Sets moves to consider to all

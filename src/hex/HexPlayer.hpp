@@ -43,7 +43,7 @@ public:
     */
     virtual HexPoint GenMove(const HexState& state, const Game& game, 
                              HexBoard& brd, double maxTime, 
-                             double& score) = 0;
+                             double& score, std::vector<std::pair<SgMove, double> >* allMoveScores=0) = 0;
 };
 
 //----------------------------------------------------------------------------

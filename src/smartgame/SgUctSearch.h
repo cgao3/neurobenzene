@@ -337,10 +337,12 @@ public:
         @param count Number of times node has been visited. For knowledge-
         based computations.
         @param[out] moves The generated moves or empty list at end of game
-        @param[out] provenType */
+        @param[out] provenType 
+        @param[out] expansionNodeValueEstimate The value of the just expanded node
+        */
     virtual bool GenerateAllMoves(SgUctValue count, 
                                   std::vector<SgUctMoveInfo>& moves,
-                                  SgUctProvenType& provenType) = 0;
+                                  SgUctProvenType& provenType, SgUctValue &expansionNodeValueEstimate) = 0;
 
     /** Generate random move.
         Generate a random move in the play-out phase (outside the UCT tree).
@@ -589,13 +591,17 @@ public:
         initialization. The trees are actually swapped, not copied.
         @param earlyAbort See SgUctEarlyAbortParam. Null means not to do an
         early abort.
+        @param moveSelectDither Optional, moveSelectDither default false
+        @param moveProbs Optional. return move probs at the root.
         @return The value of the root position. */
     SgUctValue Search(SgUctValue maxGames, double maxTime,
                       std::vector<SgMove>& sequence,
                       const std::vector<SgMove>& rootFilter
                       = std::vector<SgMove>(),
                       SgUctTree* initTree = 0,
-                      SgUctEarlyAbortParam* earlyAbort = 0);
+                      SgUctEarlyAbortParam* earlyAbort = 0,
+                      const bool moveSelectDither=false,
+                      std::vector<std::pair<SgMove, SgUctValue> >* moveProbs=0);
 
     /** Do a one-ply Monte Carlo search instead of the UCT search.
         @param maxGames
@@ -609,14 +615,21 @@ public:
         @param moveSelect Type of move selection to use.
         @param excludeMoves Optional list of moves to ignore in the children
         nodes.
+        @param moveSelectDither Optional boolean, whether to dither or not in move selection
+        default false
+        @param moveProbs Optional, a vector of move probabilties
         @return The best child or 0 if no child nodes exists. */
     const SgUctNode*
     FindBestChild(const SgUctNode& node, SgUctMoveSelect moveSelect,
-                  const std::vector<SgMove>* excludeMoves = 0) const;
+                  const std::vector<SgMove>* excludeMoves = 0,
+                  const bool moveSelectDither=false, std::vector<std::pair<SgMove, SgUctValue> >* moveProbs=0) const;
 
     /** Extract sequence of best moves from root node.
-        @param[out] sequence The resulting sequence. */
-    void FindBestSequence(std::vector<SgMove>& sequence) const;
+        @param[out] sequence The resulting sequence.
+        @param moveSelectDither Optional. To use dithering or not when move select, default false\
+        @param moveProbs Optional. a vector of move probabilities at the root*/
+    void FindBestSequence(std::vector<SgMove>& sequence, const bool moveSelectDither=false,
+                          std::vector<std::pair<SgMove, SgUctValue> >* moveProbs=0) const;
 
     /** Return the bound of a move.
         This is the bound that was used for move selection. It can be the
@@ -822,6 +835,15 @@ public:
 
     /** See Rave() */
     void SetRave(bool enable);
+
+    /** See UsePlayOutConst() */
+    void SetUsePlayoutConst(double w);
+
+    double UsePlayoutConst() const;
+
+	void SetDitherTemperature(double t);
+
+	double DitherTemperature() const;
 
     /** See SgUctMoveSelect */
     SgUctMoveSelect MoveSelect() const;
@@ -1110,6 +1132,12 @@ private:
     /** Time limit for current search. */
     double m_maxTime;
 
+    /** [0,1.0] weight of playout result */
+    double m_use_playout_const;
+
+	/** Dithering temperature */
+	double m_ditherTemperature;
+
     /** See VirtualLoss() */
     bool m_virtualLoss;
 
@@ -1176,12 +1204,12 @@ private:
                         bool deleteChildTrees);
 
     SgUctValue GetBound(bool useRave, bool useBiasTerm,
-                   SgUctValue logPosCount, 
+                   SgUctValue posCount, SgUctValue logPosCount,
                    const SgUctNode& child) const;
 
     SgUctValue GetValueEstimate(bool useRave, const SgUctNode& child) const;
 
-    SgUctValue GetValueEstimateRave(const SgUctNode& child,
+    SgUctValue GetValueEstimateRave(bool useRave, const SgUctNode& child,
                                     SgUctValue logPosCount) const;
 
     SgUctValue Log(SgUctValue x) const;
@@ -1190,7 +1218,7 @@ private:
 
     void PlayGame(SgUctThreadState& state, GlobalLock* lock);
 
-    bool PlayInTree(SgUctThreadState& state, bool& isTerminal);
+    bool PlayInTree(SgUctThreadState& state, bool& isTerminal, SgUctValue& expandsionNodeValueEstimate);
 
     bool PlayoutGame(SgUctThreadState& state, std::size_t playout);
 
@@ -1515,6 +1543,27 @@ inline void SgUctSearch::SetWeightRaveUpdates(bool enable)
 inline bool SgUctSearch::VirtualLoss() const
 {
     return m_virtualLoss;
+}
+
+inline double SgUctSearch::UsePlayoutConst() const
+{
+    return m_use_playout_const;
+}
+
+inline void SgUctSearch::SetUsePlayoutConst(double w)
+{
+    //assert(w>=0 && w<=1.0);
+    m_use_playout_const=w;
+}
+
+inline double SgUctSearch::DitherTemperature() const
+{
+	return m_ditherTemperature;
+}
+
+inline void SgUctSearch::SetDitherTemperature(double t)
+{
+	m_ditherTemperature = t;
 }
 
 inline void SgUctSearch::SetVirtualLoss(bool enable)

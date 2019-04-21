@@ -95,7 +95,7 @@ private:
 
     virtual HexPoint Search(const HexState& state, const Game& game,
                             HexBoard& brd, const bitset_t& consider,
-                            double maxTime, double& score);
+                            double maxTime, double& score, std::vector<std::pair<SgMove, double > >* allMoveScores=0);
 
     std::string PrintStatistics(int score, const SgVector<SgMove>& pv);
 };

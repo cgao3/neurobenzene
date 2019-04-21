@@ -17,6 +17,10 @@
 #include "StateDB.hpp"
 #include "SolverDB.hpp"
 
+#include "NeuroEvaluate.hpp"
+#include <future>
+#include <vector>
+
 #include <limits>
 #include <boost/thread.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -588,6 +592,15 @@ public:
     /** See TtBakPeriod() */
     void SetTtBakPeriod(boost::posix_time::time_duration tt_bak_period);
 
+    /** neural net stuff */
+    void SetUseNN(bool use_nn);
+    
+    bool UseNN();
+
+    void SetNNEvaluator(std::shared_ptr<NNEvaluator> nn_ptr);
+
+    const NNEvaluator& GetNNEvaluator() const;
+
     // @}
 
 private:
@@ -659,6 +672,8 @@ private:
     boost::mutex m_backup_mutex;
     boost::condition_variable m_nothingToSearch_cond;
     boost::shared_mutex m_tt_mutex;
+    std::map<SgHashCode, DfpnBounds> m_topmid_tt;
+
 
     DfpnStates* m_positions;
     VirtualBoundsTT m_vtt;
@@ -666,6 +681,11 @@ private:
     std::vector<DfpnListener*> m_listener;
 
     SgTimer m_timer;
+
+    /** neural net stuff */
+    bool m_use_nn;
+
+    std::shared_ptr<NNEvaluator> m_nnEvaluator;
 
     /** See UseGuiFx() */
     bool m_useGuiFx;
@@ -820,15 +840,15 @@ private:
                         const std::vector<DfpnData>& childrenData,
                         const DfpnChildren& children);
 
-    bool TTReadNoLock(const HexState& state, DfpnData& data);
+    bool TTReadNoLock(const HexState& state, DfpnData& data, bool init = true);
 
     void TTWrite(const HexState& state, DfpnData& data);
 
-    bool TTRead(const HexState& state, DfpnData& data);
+    bool TTRead(const HexState& state, DfpnData& data, bool init = true);
 
     void DBWrite(const HexState& state, DfpnData& data);
 
-    bool DBRead(const HexState& state, DfpnData& data);
+    bool DBRead(const HexState& state, DfpnData& data, bool init = true);
 
     void TryDoBackups(bool adjust_start = false);
 
@@ -985,6 +1005,23 @@ inline boost::posix_time::time_duration DfpnSolver::TtBakPeriod() const
 inline void DfpnSolver::SetTtBakPeriod(boost::posix_time::time_duration tt_bak_period)
 {
     m_tt_bak_period = tt_bak_period;
+}
+
+
+inline const NNEvaluator& DfpnSolver::GetNNEvaluator() const {
+    return *m_nnEvaluator;
+}
+
+inline void DfpnSolver::SetNNEvaluator(std::shared_ptr<NNEvaluator> nn_ptr){
+    m_nnEvaluator=nn_ptr;
+}
+
+inline void DfpnSolver::SetUseNN(bool flag_use_nn){
+    m_use_nn=flag_use_nn;
+}
+
+inline bool DfpnSolver::UseNN(){
+    return m_use_nn;
 }
 
 //----------------------------------------------------------------------------

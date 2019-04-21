@@ -444,7 +444,9 @@ DfpnSolver::DfpnSolver()
       m_allEvaluation(-2.5, 2.0, 45),
       m_allSolvedEvaluation(-2.5, 2.0, 45),
       m_winningEvaluation(-2.5, 2.0, 45),
-      m_losingEvaluation(-2.5, 2.0, 45)
+      m_losingEvaluation(-2.5, 2.0, 45),
+      m_use_nn(false),
+      m_nnEvaluator(nullptr)
 {
 }
 
@@ -705,36 +707,81 @@ size_t DfpnSolver::TopMid(const DfpnBounds& maxBounds,
 
     BenzeneAssert(data.IsValid());
 
-    d.bestIndex = data.m_children.MoveIndex(data.m_bestMove);
-
-    d.childrenData.resize(data.m_children.Size());
-    d.virtualBounds.resize(data.m_children.Size());
-
-    bool first = true;
+    bool wasCall = false;
+    size_t childWork;
+    DfpnData childData;
+    DfpnBounds childVBounds;
+    HexPoint bestMove;
     while (true)
     {
-        if (first || midCalled)
+        if (wasCall)
+            DBRead(*m_state, data, false);
+
+        d.childrenData.resize(data.m_children.Size());
+        d.virtualBounds.resize(data.m_children.Size());
+        LookupChildrenDB(d.childrenData, data.m_children);
+        LookupChildren(depth + 1, d.virtualBounds, d.childrenData, data.m_children);
+
+        d.bestIndex = data.m_children.MoveIndex(data.m_bestMove);
+
+        if (data.m_children.Size() == 0)
         {
-            LookupChildrenDB(d.childrenData, data.m_children);
-            LookupChildren(depth + 1, d.virtualBounds,
-                        d.childrenData, data.m_children);
-            first = false;
+            DfpnBounds::SetToLosing(vBounds);
+            break;
         }
+
+        if (wasCall)
+        {
+            data.m_work += childWork;
+            for (size_t i = 0; i < data.m_children.Size(); ++i)
+                if (data.m_children.FirstMove(i) == bestMove)
+                {
+                    data.m_bestMove = bestMove;
+                    d.bestIndex = i;
+                    d.childrenData[i] = childData;
+                    d.virtualBounds[i] = childVBounds;
+                    break;
+                }
+        }
+
+        if (wasCall && bestMove == data.m_bestMove)
+        {
+            bitset_t toPrune =
+                ChildrenToPrune(data.m_children, data.m_bestMove,
+                                d.childrenData[d.bestIndex].m_maxProofSet);
+            if (toPrune.any())
+            {
+                VecPrune(data.m_children.m_children, toPrune);
+                d.bestIndex = data.m_children.MoveIndex(data.m_bestMove);
+                VecPrune(d.childrenData, toPrune);
+                if (!midCalled)
+                    VecPrune(d.virtualBounds, toPrune);
+                if (m_useGuiFx && depth == 0)
+                    m_guiFx.SetChildren(data.m_children, d.childrenData);
+            }
+        }
+
+        size_t maxChildIndex = ComputeMaxChildIndex(d.childrenData);
 
         if (m_useGuiFx && depth == 0)
             m_guiFx.SetChildrenOnce(data.m_children, d.childrenData);
 
-        size_t maxChildIndex = ComputeMaxChildIndex(d.childrenData);
         UpdateBounds(data.m_bounds, d.childrenData, maxChildIndex);
 
         size_t virtualMaxChildIndex = ComputeMaxChildIndex(d.virtualBounds);
         UpdateBounds(vBounds, d.virtualBounds, virtualMaxChildIndex);
 
-        if (midCalled || !maxBounds.GreaterThan(vBounds))
+        if (midCalled)
             break;
-
         if (CheckAbort())
             break;
+        if (!maxBounds.GreaterThan(vBounds))
+        {
+            m_topmid_tt[d.hash] = vBounds;
+            break;
+        }
+
+        DBWrite(*m_state, data);
 
         if (m_useGuiFx && depth == 1)
             m_guiFx.UpdateBounds(m_history->LastMove(), data.m_bounds);
@@ -743,34 +790,25 @@ size_t DfpnSolver::TopMid(const DfpnBounds& maxBounds,
         SelectChild(d.bestIndex, childMaxBounds, vBounds,
                     d.virtualBounds, maxBounds, virtualMaxChildIndex);
 
-        data.m_bestMove = data.m_children.FirstMove(d.bestIndex);
+        bestMove = data.m_children.FirstMove(d.bestIndex);
         data.m_children.PlayMove(d.bestIndex, *m_state);
-        m_history->Push(data.m_bestMove, d.hash);
-        work += TopMid(childMaxBounds, d.childrenData[d.bestIndex],
+        m_history->Push(bestMove, d.hash);
+        childVBounds = d.virtualBounds[d.bestIndex];
+        childData = d.childrenData[d.bestIndex];
+        childWork = TopMid(childMaxBounds, childData, childVBounds,
+                           &d, midCalled);
+        childWork = TopMid(childMaxBounds, d.childrenData[d.bestIndex],
                        d.virtualBounds[d.bestIndex], &d, midCalled);
+        wasCall = true;
+        work += childWork;
         m_history->Pop();
         data.m_children.UndoMove(d.bestIndex, *m_state);
 
-        UpdateStatsOnWin(d.childrenData, d.bestIndex, data.m_work + work);
-
-        bitset_t toPrune =
-            ChildrenToPrune(data.m_children, data.m_bestMove,
-                            d.childrenData[d.bestIndex].m_maxProofSet);
-        if (toPrune.any())
-        {
-            VecPrune(data.m_children.m_children, toPrune);
-            d.bestIndex = data.m_children.MoveIndex(data.m_bestMove);
-            VecPrune(d.childrenData, toPrune);
-            if (!midCalled)
-                VecPrune(d.virtualBounds, toPrune);
-            if (m_useGuiFx && depth == 0)
-                m_guiFx.SetChildren(data.m_children, d.childrenData);
-        }
+        UpdateStatsOnWin(d.childrenData, d.bestIndex, data.m_work);
     }
 
     UpdateSolvedBestMove(data, d.childrenData);
 
-    data.m_work += work;
     if (data.m_bounds.IsSolved())
         NotifyListeners(*m_history, data);
     DBWrite(*m_state, data);
@@ -800,6 +838,7 @@ void DfpnSolver::RunThread(int id, const DfpnBounds& maxBounds,
 
         boost::unique_lock<boost::mutex> lock(m_topmid_mutex);
 
+        m_topmid_tt.clear();
         DBRead(*m_state, data);
         vBounds = data.m_bounds;
         m_vtt.Lookup(0, m_state->Hash(), vBounds);
@@ -832,6 +871,23 @@ size_t DfpnSolver::CreateData(DfpnData& data)
         return 0;
 
     HexColor colorToMove = m_state->ToPlay();
+
+     //evaluate by neural net
+    bitset_t black_played_stones=m_state->Position().GetPlayed(BLACK) &
+                                 m_state->Position().Const().GetCells();
+    bitset_t white_played_stones=m_state->Position().GetPlayed(WHITE) &
+                                 m_state->Position().Const().GetCells();
+    int boardsize=m_state->Position().Width();
+    int squared_size=boardsize*boardsize;
+    std::vector<float> nn_score(squared_size);
+    std::vector<float> q_values(boardsize*boardsize);
+    //q_values.resize(squared_size);
+    std::future<float> evalFuture;
+    if(m_use_nn) evalFuture=std::async([this, &black_played_stones, &white_played_stones, &nn_score, &q_values, &boardsize]{
+        return this->GetNNEvaluator().evaluate(black_played_stones,
+                                              white_played_stones, this->m_state->ToPlay(), nn_score, q_values, boardsize);
+        });
+    //end neural net evaluation
 
     m_workBoard->GetPosition().SetPosition(m_state->Position());
     m_workBoard->ComputeAll(colorToMove);
@@ -867,17 +923,48 @@ size_t DfpnSolver::CreateData(DfpnData& data)
         EndgameUtil::MovesToConsider(*m_workBoard, colorToMove);
 
     m_considerSetSize.Add(float(childrenBitset.count()));
-    Resistance resist;
-    resist.Evaluate(*m_workBoard);
-    data.m_evaluationScore = (colorToMove == BLACK)
-        ? resist.Score() : -resist.Score();
-    m_allEvaluation.Add(data.m_evaluationScore);
     std::vector<std::pair<HexEval, HexPoint> > mvsc;
-    for (BitsetIterator it(childrenBitset); it; ++it)
-    {
-        HexEval score = resist.Score(*it);
-        mvsc.push_back(std::make_pair(-score, *it));
+   
+    if(!m_use_nn){
+        Resistance resist;
+        resist.Evaluate(*m_workBoard);
+        data.m_evaluationScore = static_cast<float>((colorToMove == BLACK)
+                                 ? resist.Score() : -resist.Score());
+        for (BitsetIterator it(childrenBitset); it; ++it)
+        {
+            HexEval score = resist.Score(*it);
+            mvsc.push_back(std::make_pair(-score, *it));
+        }
     }
+    else {
+        float stateEvaluation=evalFuture.get();
+        stateEvaluation=0.0;
+        for (BitsetIterator it(childrenBitset); it; ++it)
+        {
+            int x,y;
+            HexPointUtil::pointToCoords(*it, x,y);
+            HexEval score = nn_score[x*boardsize+y];
+            stateEvaluation += score*(1.0-q_values[x*boardsize+y]);
+            //std::cout<<HexPointUtil::ToString(*it)<<" prob:"<<score<<"\n";
+            mvsc.push_back(std::make_pair(-score, *it));
+
+            //write children data to TT
+            /*
+            DfpnData childData;
+            m_state->PlayMove(*it);
+            TTRead(*m_state, childData);
+            childData.m_evaluationScore=q_values[x*boardsize+y];
+            childData.m_prior_prob=nn_score[x*boardsize+y];
+            InitPhiDelta(childData, q_values[x*boardsize+y]);
+            //std::cout<<"DfpnData bounds:"<<childData.m_bounds.phi<<" "<<childData.m_bounds.delta<<"\n";
+            TTWrite(*m_state, childData);
+            */
+            //m_state->UndoMove(*it);
+        }
+        data.m_evaluationScore=stateEvaluation;
+        //std::cout<<"sateEstiate:"<<stateEvaluation<<"\n";
+    }
+    m_allEvaluation.Add(data.m_evaluationScore);
     stable_sort(mvsc.begin(), mvsc.end());
     std::vector<HexPoint> sortedChildren;
     for (size_t i = 0; i < mvsc.size(); ++i)
@@ -977,8 +1064,48 @@ size_t DfpnSolver::MID(const DfpnBounds& maxBounds,
     size_t bestIndex = data.m_children.MoveIndex(data.m_bestMove);
 
     SgHashCode currentHash = m_state->Hash();
+
+    bool wasCall = false;
+    size_t childWork;
+    DfpnData childData;
+    HexPoint bestMove;
     do
     {
+        if (wasCall)
+            TTRead(*m_state, data, false);
+
+        std::vector<DfpnData> childrenData(data.m_children.Size());
+        LookupChildrenTT(childrenData, data.m_children);
+
+        size_t bestIndex = data.m_children.MoveIndex(data.m_bestMove);
+        if (wasCall)
+        {
+            data.m_work += childWork;
+            for (size_t i = 0; i < data.m_children.Size(); ++i)
+                if (data.m_children.FirstMove(i) == bestMove)
+                {
+                    data.m_bestMove = bestMove;
+                    bestIndex = i;
+                    childrenData[i] = childData;
+                    break;
+                }
+        }
+
+        if (wasCall && bestMove == data.m_bestMove)
+        {
+            bitset_t toPrune =
+                ChildrenToPrune(data.m_children, data.m_bestMove,
+                                childrenData[bestIndex].m_maxProofSet);
+            if (toPrune.any())
+            {
+                VecPrune(data.m_children.m_children, toPrune);
+                bestIndex = data.m_children.MoveIndex(data.m_bestMove);
+                VecPrune(childrenData, toPrune);
+                if (m_useGuiFx && m_history->Depth() == 0)
+                    m_guiFx.SetChildren(data.m_children, childrenData);
+            }
+        }
+
         // Index used for progressive widening
         size_t maxChildIndex = ComputeMaxChildIndex(childrenData);
 
@@ -1001,43 +1128,32 @@ size_t DfpnSolver::MID(const DfpnBounds& maxBounds,
 
         if (!maxBounds.GreaterThan(data.m_bounds))
             break;
-
         if (work >= workBound)
+            break;
+        if (CheckAbort())
             break;
 
         // Select most proving child
         DfpnBounds childMaxBounds;
         SelectChild(bestIndex, childMaxBounds, data.m_bounds,
                     childrenData, maxBounds, maxChildIndex);
-        data.m_bestMove = data.m_children.FirstMove(bestIndex);
+        bestMove = data.m_children.FirstMove(bestIndex);
         // Recurse on best child
         if (m_useGuiFx && depth == 0)
-            m_guiFx.SetPV(data.m_bestMove, childrenData[bestIndex].GetBounds());
+            m_guiFx.SetPV(data.m_children.m_children[bestIndex], childrenData[bestIndex].GetBounds());
         data.m_children.PlayMove(bestIndex, *m_state);
         m_history->Push(data.m_bestMove, currentHash);
-        size_t childWork = MID(childMaxBounds, workBound - work,
-                               childrenData[bestIndex]);
+        childData = childrenData[bestIndex];
+        childWork = MID(childMaxBounds, workBound - work, childData);
+        wasCall = true;
         work += childWork;
-        data.m_work += childWork;
         m_history->Pop();
         data.m_children.UndoMove(bestIndex, *m_state);
 
         if (m_useGuiFx && depth == 0)
             m_guiFx.SetPV();
 
-        UpdateStatsOnWin(childrenData, bestIndex, data.m_work + work);
-
-        bitset_t toPrune =
-            ChildrenToPrune(data.m_children, data.m_bestMove,
-                            childrenData[bestIndex].m_maxProofSet);
-        if (toPrune.any())
-        {
-            VecPrune(data.m_children.m_children, toPrune);
-            bestIndex = data.m_children.MoveIndex(data.m_bestMove);
-            VecPrune(childrenData, toPrune);
-            if (m_useGuiFx && m_history->Depth() == 0)
-                m_guiFx.SetChildren(data.m_children, childrenData);
-        }
+        UpdateStatsOnWin(childrenData, bestIndex, data.m_work);
     } while (!m_thread_path_solved[*m_thread_id] && !CheckAbort());
 
     if (m_useGuiFx && depth == 0)
@@ -1224,15 +1340,26 @@ void DfpnSolver::LookupChildren(size_t depth,
     for (size_t i = 0; i < children.Size(); ++i)
     {
         virtualBounds[i] = childrenData[i].GetBounds();
+        if (virtualBounds[i].IsSolved())
+            continue;
         children.PlayMove(i, *m_state);
-        m_vtt.Lookup(depth, m_state->Hash(), virtualBounds[i]);
+        map<SgHashCode, DfpnBounds>::const_iterator it = m_topmid_tt.find(m_state->Hash());
+        if (it == m_topmid_tt.end())
+            m_vtt.Lookup(depth, m_state->Hash(), virtualBounds[i]);
+        else
+            virtualBounds[i] = it->second;
         children.UndoMove(i, *m_state);
     }
 }
 
-bool DfpnSolver::TTReadNoLock(const HexState& state, DfpnData& data)
+bool DfpnSolver::TTReadNoLock(const HexState& state, DfpnData& data, bool init)
 {
-    return m_positions->GetHT(state, data);
+    bool res = m_positions->GetHT(state, data);
+    if (!res && init)
+    {
+        /* TODO write inititalization code of data here */
+    }
+    return res;
 }
 
 void DfpnSolver::TTWrite(const HexState& state, DfpnData& data)
@@ -1250,10 +1377,10 @@ void DfpnSolver::TTWrite(const HexState& state, DfpnData& data)
     m_positions->PutHT(state, data);
 }
 
-bool DfpnSolver::TTRead(const HexState& state, DfpnData& data)
+bool DfpnSolver::TTRead(const HexState& state, DfpnData& data, bool init)
 {
     boost::shared_lock<boost::shared_mutex> lock(m_tt_mutex);
-    return TTReadNoLock(state, data);
+    return TTReadNoLock(state, data, init);
 }
 
 void DfpnSolver::DBWrite(const HexState& state, DfpnData& data)
@@ -1269,11 +1396,11 @@ void DfpnSolver::DBWrite(const HexState& state, DfpnData& data)
     m_positions->PutDB(state, data);
 }
 
-bool DfpnSolver::DBRead(const HexState& state, DfpnData& data)
+bool DfpnSolver::DBRead(const HexState& state, DfpnData& data, bool init)
 {
     if (m_positions->GetDB(state, data))
         return true;
-    return TTRead(state, data);
+    return TTRead(state, data, init);
 }
 
 //----------------------------------------------------------------------------

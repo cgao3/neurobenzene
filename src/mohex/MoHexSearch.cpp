@@ -45,6 +45,7 @@ HexThreadStateFactory::Create(unsigned int threadId, const SgUctSearch& search)
 
 MoHexSearch::MoHexSearch(SgUctThreadStateFactory* factory, int maxMoves)
     : SgUctSearch(factory, maxMoves),
+      m_nnEvaluator(nullptr),
       m_liveGfx(false),
       m_brd(0),
       m_fillinMapBits(16),
@@ -52,7 +53,9 @@ MoHexSearch::MoHexSearch(SgUctThreadStateFactory* factory, int maxMoves)
       m_vcmGamma(282.0f),
       m_sharedData(new MoHexSharedData(m_fillinMapBits)),
       m_globalPatterns(),
-      m_localPatterns()
+      m_localPatterns(),
+      m_root_dirichlet_prior(0.0)
+
 {
     SetBiasTermConstant(0.0);
     SetExpandThreshold(10);
@@ -73,7 +76,7 @@ MoHexSearch::MoHexSearch(SgUctThreadStateFactory* factory, int maxMoves)
     }
     SetMoveSelect(SG_UCTMOVESELECT_COUNT);
     SetNumberThreads(1);    
-    SetRave(true);
+    SetRave(false);
     SetFirstPlayUrgency(0.35f);
     SetRandomizeRaveFrequency(30);
     SetUctBiasConstant(0.22f);
@@ -83,6 +86,7 @@ MoHexSearch::MoHexSearch(SgUctThreadStateFactory* factory, int maxMoves)
     SetProgressiveBiasConstant(2.47f);
     SetLazyDelete(true);
     SetVirtualLoss(true);
+    SetUsePlayoutConst(0.0);
 
     MoHexPatterns::InitializeZobrist();
     LoadPatterns();
