@@ -69,151 +69,106 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Cellar/boost/1.64.0_1/lib
 
 ### Running some tests 
 
-Try ``./build/src/mohex/mohex3H``
+Try ``./build/src/mohex/mohex3HNN``
 
 ```
- nn_load /home/hayward-admin/CLionProjects/benzene-simplefeature/share/13x13models/w001/loss_new/resnet13x13_70.pb
-2018-05-15 17:39:02.359103: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] 
-Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1080, pci bus id: 0000:01:00.0, compute capability: 6.1)
+ showboard
+= 
+ 
+  2a78b48864b73c1f
+  a  b  c  d  e  f  g  h  i  j  k  
+ 1\.  .  .  .  .  .  .  .  .  .  .\1
+  2\.  .  .  .  .  .  .  .  .  .  .\2
+   3\.  .  .  .  .  .  .  .  .  .  .\3
+    4\.  .  .  .  .  .  .  .  .  .  .\4
+     5\.  .  .  .  .  .  .  .  .  .  .\5
+      6\.  .  .  .  .  .  .  .  .  .  .\6
+       7\.  .  .  .  .  .  .  .  .  .  .\7
+        8\.  .  .  .  .  .  .  .  .  .  .\8
+         9\.  .  .  .  .  .  .  .  .  .  .\9
+         10\.  .  .  .  .  .  .  .  .  .  .\10
+          11\.  .  .  .  .  .  .  .  .  .  .\11
+              a  b  c  d  e  f  g  h  i  j  k  
+
+nn_ls
+= Loaded neural net: /home/chenyang/cg/neurobenzene/share/nn/11x11train4.txt.out-post.ckpt-1.const.pb
+Use nn_load nn_model for new model, note nn_model should be a full path or just model name if it is available in share/nn/
+List available nn models at share/nn/
+13x13train30.txt.out-post.ckpt-2.const.pb
+11x11train4.txt.out-post.ckpt-1.const.pb
+
+play b g3
 = 
 
 showboard
 = 
  
-  ab8d165ede7c8d69
-  a  b  c  d  e  f  g  h  i  j  k  l  m  
- 1\.  .  .  .  .  .  .  .  .  .  .  .  .\1
-  2\.  .  .  .  .  .  .  .  .  .  .  .  .\2
-   3\.  .  .  .  .  .  .  .  .  .  .  .  .\3
-    4\.  .  .  .  .  .  .  .  .  .  .  .  .\4
-     5\.  .  .  .  .  .  .  .  .  .  .  .  .\5
-      6\.  .  .  .  .  .  .  .  .  .  .  .  .\6
-       7\.  .  .  .  .  .  .  .  .  .  .  .  .\7
-        8\.  .  .  .  .  .  .  .  .  .  .  .  .\8
-         9\.  .  .  .  .  .  .  .  .  .  .  .  .\9
-         10\.  .  .  .  .  .  .  .  .  .  .  .  .\10
-          11\.  .  .  .  .  .  .  .  .  .  .  .  .\11
-           12\.  .  .  .  .  .  .  .  .  .  .  .  .\12
-            13\.  .  .  .  .  .  .  .  .  .  .  .  .\13
-                a  b  c  d  e  f  g  h  i  j  k  l  m  
+  9af481a52c1456bb
+  a  b  c  d  e  f  g  h  i  j  k  
+ 1\.  .  .  .  .  .  .  .  .  .  .\1
+  2\.  .  .  .  .  .  .  .  .  .  .\2
+   3\.  .  .  .  .  .  B  .  .  .  .\3
+    4\.  .  .  .  .  .  .  .  .  .  .\4
+     5\.  .  .  .  .  .  .  .  .  .  .\5
+      6\.  .  .  .  .  .  .  .  .  .  .\6
+       7\.  .  .  .  .  .  .  .  .  .  .\7
+        8\.  .  .  .  .  .  .  .  .  .  .\8
+         9\.  .  .  .  .  .  .  .  .  .  .\9
+         10\.  .  .  .  .  .  .  .  .  .  .\10
+          11\.  .  .  .  .  .  .  .  .  .  .\11
+              a  b  c  d  e  f  g  h  i  j  k  
 
-nn_evaluate
-boardsize:13, toplay:black
-= state_value:0.614183; p, q are (only moves p_i >=0.01): 
-d10@(0.025,0.24)	e5@(0.012,0.51)	e6@(0.03,0.38)	e8@(0.028,0.37)	
-    e9@(0.041,0.31)	f6@(0.023,0.61)	f7@(0.068,0.36)	f8@(0.088,0.41)	g6@(0.024,0.33)	
-    g7@(0.13,0.24)	g8@(0.011,0.44)	h5@(0.011,0.42)	h6@(0.082,0.39)	h7@(0.038,0.21)	
-    i5@(0.079,0.27)	i6@(0.016,0.49)	i8@(0.011,0.47)	j4@(0.021,0.34)	
-
-genmove b
-615e8 info: Best move cannot be determined, must search state.
-615e8 info: --- MoHexPlayer::Search() ---
-615e8 info: Color: black
-615e8 info: MaxGames: 99999999
-615e8 info: NumberThreads: 1
-615e8 info: MaxNodes: 10416666 (999999936 bytes)
-615e8 info: TimeForMove: 10
-615e8 info: Time for PreSearch: 0.637418s
-615e8 info: 
-  ab8d165ede7c8d69
-  a  b  c  d  e  f  g  h  i  j  k  l  m  
- 1\.  .  .  .  .  .  .  .  .  .  .  .  .\1
-  2\.  .  *  *  *  *  *  *  *  *  *  *  *\2
-   3\.  *  *  *  *  *  *  *  *  *  *  *  *\3
-    4\*  *  *  *  *  *  *  *  *  *  *  *  *\4
-     5\*  *  *  *  *  *  *  *  *  *  *  *  *\5
-      6\*  *  *  *  *  *  *  *  *  *  *  *  *\6
-       7\*  *  *  *  *  *  *  .  .  .  .  .  .\7
-        8\.  .  .  .  .  .  .  .  .  .  .  .  .\8
-         9\.  .  .  .  .  .  .  .  .  .  .  .  .\9
-         10\.  .  .  .  .  .  .  .  .  .  .  .  .\10
-          11\.  .  .  .  .  .  .  .  .  .  .  .  .\11
-           12\.  .  .  .  .  .  .  .  .  .  .  .  .\12
-            13\.  .  .  .  .  .  .  .  .  .  .  .  .\13
-                a  b  c  d  e  f  g  h  i  j  k  l  m  
-615e8 info: Old: 
-615e8 info: New: 
-615e8 info: ReuseSubtree: in same position as last time!
-615e8 info: MovesPlayed: 
-615e8 info: MoHexPlayer: Reusing 279936 nodes (99%)
-615e8 info: MoHexPlayer: Reusing 290 knowledge states (111%)
-615e8 info: StartSearch()[0]
- 0:05 | 0.616 | 65442 | 9.7 | h6 h5 i5 j3 i4 i3 h4 h3 f4 f7 ^ g8 g4 f5 g5 k3
+genmove w
+63079 info: Best move cannot be determined, must search state.
+63079 info: --- MoHexPlayer::Search() ---
+63079 info: Color: white
+63079 info: MaxGames: 99999999
+63079 info: NumberThreads: 1
+63079 info: MaxNodes: 10416666 (999999936 bytes)
+63079 info: TimeForMove: 10
+63079 info: Time for PreSearch: 0.387516s
+63079 info: 
+  9af481a52c1456bb
+  a  b  c  d  e  f  g  h  i  j  k  
+ 1\.  .  .  *  *  *  *  *  *  *  .\1
+  2\.  .  *  *  *  *  *  *  *  *  .\2
+   3\.  *  *  *  *  *  B  *  *  *  .\3
+    4\.  *  *  *  *  *  *  *  *  *  .\4
+     5\.  *  *  *  *  *  *  *  .  *  .\5
+      6\.  *  *  *  *  *  *  *  *  *  .\6
+       7\.  *  .  *  *  *  *  *  *  *  .\7
+        8\.  *  *  *  *  *  *  *  *  *  .\8
+         9\.  *  *  *  *  *  *  *  *  *  .\9
+         10\.  *  *  *  *  *  *  *  *  .  .\10
+          11\.  *  *  *  *  *  *  *  .  .  .\11
+              a  b  c  d  e  f  g  h  i  j  k  
+63079 info: no subtree to reuse since old position not exists
+63079 info: No subtree to reuse.
+63079 info: Creating thread 0
+63079 info: StartSearch()[0]
+ 0:05 | 0.424 | 8110 | 3.4 | e7 g6 g5 ^ f6 f5 e6 e5 i4
 SgUctSearch: move cannot change anymore
-615e8 info: 
-Elapsed Time   10.1851s
-Count          80624
-GamesPlayed    34905
-Nodes          498065
-Knowledge      202 (0.3%)
-Expansions     1657.0
-Time           9.26
-GameLen        168.9 dev=0.5 min=164.0 max=169.0
-InTree         10.3 dev=4.8 min=1.0 max=30.0
-KnowDepth      8.1 dev=3.5 min=1.0 max=17.0
+63079 info: 
+Elapsed Time   9.35722s
+Count          14802
+GamesPlayed    14802
+Nodes          61741
+Knowledge      35 (0.2%)
+Expansions     656.0
+Time           8.80
+GameLen        120.0 dev=0.0 min=120.0 max=120.0
+InTree         3.6 dev=1.6 min=0.0 max=11.0
+KnowDepth      2.0 dev=1.0 min=0.0 max=4.0
 Aborted        0%
-Games/s        3768.2
-Score          0.63
-Sequence       h6 h5 i5 j3 i4 i3 h4 h3 f4 f7 g8 g4 f5 g5 k3 j4
-moveselect dithering threshold: 0	 num stones in current state:0
-615e8 info: 
-= h6
+Games/s        1681.9
+Score          0.42
+Sequence       e7 g6 g5 f6 f5 e6 e5 i4 h5
+moveselect dithering threshold: 0	 num stones in current state:1
+63079 info: 
+= e7
 
-undo
+quit
 = 
-
-param_mohex reuse_subtree 0
-= 
-
-genmove b
-615e8 info: Best move cannot be determined, must search state.
-615e8 info: --- MoHexPlayer::Search() ---
-615e8 info: Color: black
-615e8 info: MaxGames: 99999999
-615e8 info: NumberThreads: 1
-615e8 info: MaxNodes: 10416666 (999999936 bytes)
-615e8 info: TimeForMove: 10
-615e8 info: Time for PreSearch: 0.67398s
-615e8 info: 
-  ab8d165ede7c8d69
-  a  b  c  d  e  f  g  h  i  j  k  l  m  
- 1\.  .  .  .  .  .  .  .  .  .  .  .  .\1
-  2\.  .  *  *  *  *  *  *  *  *  *  *  *\2
-   3\.  *  *  *  *  *  *  *  *  *  *  *  *\3
-    4\*  *  *  *  *  *  *  *  *  *  *  *  *\4
-     5\*  *  *  *  *  *  *  *  *  *  *  *  *\5
-      6\*  *  *  *  *  *  *  *  *  *  *  *  *\6
-       7\*  *  *  *  *  *  *  .  .  .  .  .  .\7
-        8\.  .  .  .  .  .  .  .  .  .  .  .  .\8
-         9\.  .  .  .  .  .  .  .  .  .  .  .  .\9
-         10\.  .  .  .  .  .  .  .  .  .  .  .  .\10
-          11\.  .  .  .  .  .  .  .  .  .  .  .  .\11
-           12\.  .  .  .  .  .  .  .  .  .  .  .  .\12
-            13\.  .  .  .  .  .  .  .  .  .  .  .  .\13
-                a  b  c  d  e  f  g  h  i  j  k  l  m  
-615e8 info: StartSearch()[0]
- 0:05 | 0.672 | 19668 | 10.1 | g7 g6 h6 i4 h5 h4 g5 g4 e5 e9 ^ f8 f9 h8 h9 g9 *
-SgUctSearch: extending unstable search!
-SgUctSearch: move cannot change anymore
-615e8 info: 
-Elapsed Time   9.09767s
-Count          30802
-GamesPlayed    30802
-Nodes          193384
-Knowledge      179 (0.6%)
-Expansions     1478.0
-Time           8.25
-GameLen        169.0 dev=0.2 min=166.0 max=169.0
-InTree         10.3 dev=5.1 min=0.0 max=25.0
-KnowDepth      8.3 dev=3.7 min=0.0 max=16.0
-Aborted        0%
-Games/s        3732.0
-Score          0.67
-Sequence       g7 g6 h6 i4 h5 h4 g5 g4 e5 e9 f8 f9 h8 h9 g9 f11 g10 g11 h10 h11 j10
-moveselect dithering threshold: 0	 num stones in current state:0
-615e8 info: 
-= g7
-
 ```
 
 ### Train the neural net
