@@ -349,8 +349,8 @@ Setting it to ``1`` disables value net.
 ### Further Reading
 
 See 
-+ Chao Gao, Siqi Yan, Ryan Hayward, Martin Mueller. [A transferable neural network for Hex](# ) CG 2018.
-    **At 21st Computer Olympiad, our program MoHex3HNN based on three-head net and transfer learning (128 filters per layer, 10 residual blocks, iteratively trained on ~0.4 million self-play generated games) won 11x11 and 13x13 Hex tournaments against DeepEzo from Japan. DeepEzo uses minimax search based RL for training; Both MoHex3HNN and DeepEzo are significantly stronger than previous champion program MoHex 2.0 and MoHex-CNN.**
++ Chao Gao, Siqi Yan, Ryan Hayward, Martin Mueller. [A transferable neural network for Hex](http://webdocs.cs.ualberta.ca/~hayward/papers/transferable.pdf) CG 2018.
++ Chao Gao, , Ryan Hayward. [Hex 2018: MoHex3HNN over DeepEzo](http://webdocs.cs.ualberta.ca/~hayward/papers/taiwan18.pdf). **21st Computer Olympiad Report: program MoHex3HNN based on three-head net and transfer learning (128 filters per layer, 10 residual blocks, iteratively trained on ~0.4 million self-play generated games) won 11x11 and 13x13 Hex tournaments. The challenger DeepEzo uses minimax search based RL for training. Previous champion MoHex2.0 is now a weak baseline compared to MoHex3HNN and DeepEzo**
 + Chao Gao, Martin Mueller, Ryan Hayward.
     [Three-Head Neural Network Architecture for Monte Carlo Tree Search](https://www.ijcai.org/proceedings/2018/0523.pdf). IJCAI-ECAI 2018.  
 + Chao Gao, Martin Mueller, Ryan Hayward. 
