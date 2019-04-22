@@ -10,7 +10,7 @@ case "${unameOut}" in
 esac
 echo ${machine}
 
-bash_rc=.bash_rc
+bash_rc=.bashrc
 
 cur_dir=`pwd`
 LINUX_CPU_URL=https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-cpu-linux-x86_64-1.12.0.tar.gz
