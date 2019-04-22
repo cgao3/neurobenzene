@@ -366,7 +366,7 @@ This project is developed by:
 
 
 * **Chao Gao** - *main developer*
-
+* **Jakub Pawlewicz** 
 
 ### License
 This project is licensed under the GNU Lesser General Public License
