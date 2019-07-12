@@ -7,5 +7,11 @@ tournament/jobs*
 cmake-build-debug/*
 closedloop/*.htp
 tools/mergesgf/*
+closedloop/selfplayNN/*
+closedloop/storage/*
+tensorflow_c_cpu/include/*
+tensorflow_c_cpu/lib/*
+tensorflow_c_gpu/include/*
+tensorflow_c_gpu/lib/*
 
 
