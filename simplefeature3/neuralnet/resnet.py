@@ -37,15 +37,16 @@ logits_nxn_node: where n is boardsize
 
 epsilon = 0.001
 
-MIN_BOARDSIZE=8
+MIN_BOARDSIZE=6
 MAX_BOARDSIZE=19
 
 class ResNet(object):
-    def __init__(self, num_blocks=10, num_filters=64, fc_policy_head=False):
+    def __init__(self, num_blocks=10, num_filters=64, fc_policy_head=False, fc_q_head=False):
 
         self.num_filters = num_filters
         self.num_blocks = num_blocks
         self.fc_policy_head=fc_policy_head
+        self.fc_q_head=fc_q_head
 
         self.var_dict={}
 
@@ -115,7 +116,7 @@ class ResNet(object):
                 '''
                 in_depth = h.get_shape()[-1]
 
-                xavier = math.sqrt(2.0 / (1 * 1 * 32))
+                xavier = math.sqrt(2.0 / (1 * 1 * self.num_filters))
                 w = tf.get_variable(dtype=tf.float32, name="weight", shape=[1, 1, in_depth, 1],
                                     initializer=tf.random_normal_initializer(stddev=xavier))
                 b=tf.get_variable(dtype=tf.float32, name='bias', shape=[1], initializer=tf.constant_initializer(0.0))
@@ -157,15 +158,16 @@ class ResNet(object):
 
             #q and v estimates 
             h = tf.reshape(h_v, shape=[-1, boardsize*boardsize], name=out_name_v)
-            w_fc_q = tf.get_variable(dtype=tf.float32, name="weight_q%d"%boardsize, shape=[boardsize * boardsize, boardsize * boardsize], initializer=tf.random_normal_initializer(stddev=0.1))
-            self.w_list.append(w_fc_q)
-            self.var_dict[w_fc_q.op.name]=w_fc_q
-            b_fc_q = tf.get_variable(dtype=tf.float32, name='bias_q%d'%boardsize, shape=[boardsize * boardsize], initializer=tf.constant_initializer(0.0))
-            self.w_list.append(b_fc_q)
-            self.var_dict[b_fc_q.op.name]=b_fc_q
-
-            q_values = tf.nn.tanh(tf.add(tf.matmul(h, w_fc_q), b_fc_q), name=output_q_node_name)
-#q_values = tf.nn.tanh(h, name=output_q_node_name) #uncomment for without fc in q-value layer
+            if self.fc_q_head:
+                w_fc_q = tf.get_variable(dtype=tf.float32, name="weight_q%d"%boardsize, shape=[boardsize * boardsize, boardsize * boardsize], initializer=tf.random_normal_initializer(stddev=0.1))
+                self.w_list.append(w_fc_q)
+                self.var_dict[w_fc_q.op.name]=w_fc_q
+                b_fc_q = tf.get_variable(dtype=tf.float32, name='bias_q%d'%boardsize, shape=[boardsize * boardsize], initializer=tf.constant_initializer(0.0))
+                self.w_list.append(b_fc_q)
+                self.var_dict[b_fc_q.op.name]=b_fc_q
+                q_values = tf.nn.tanh(tf.add(tf.matmul(h, w_fc_q), b_fc_q), name=output_q_node_name)
+            else:
+                q_values = tf.nn.tanh(h, name=output_q_node_name) #uncomment for without fc in q-value layer
             q_values_dict[boardsize]=q_values
 
             w_fc_v = tf.get_variable(dtype=tf.float32, name="weight_v%d"%boardsize, shape=[boardsize * boardsize, 1], initializer=tf.random_normal_initializer(stddev=0.1))
@@ -254,7 +256,7 @@ class ResNet(object):
         #print('one_hot_vec shape:', one_hot_vec.shape)
         q_a=tf.multiply(one_hot_vec, q_values)
         q_a=tf.reduce_sum(q_a, 1)
-        batch_value_loss = coeff_v*only_v_loss + coeff_q*tf.square(z_node+ tf.stop_gradient(q_a)) + coeff_q_all*and_loss
+        batch_value_loss = coeff_v*only_v_loss + coeff_q*tf.square(z_node+ q_a) + coeff_q_all*and_loss
 
         #print('batch_value_loss', batch_value_loss)
         value_loss = tf.reduce_mean(batch_value_loss)
@@ -478,7 +480,7 @@ if __name__ == "__main__":
     parser.add_argument('--topk', type=int, default=1, help='top k in testing mode')
 
     parser.add_argument('--policy_loss_weight', default=1.0, type=float, help='policy gradient weight in loss function')
-    parser.add_argument('--value_loss_weight', default=0.25, type=float, help='value loss weight')
+    parser.add_argument('--value_loss_weight', default=0.1, type=float, help='value loss weight')
     parser.add_argument('--value_penalty_weight', default=0.25, type=float, help='value inconsistency weight')
     parser.add_argument('--evaluate_value', action='store_true', default=False, help='to perform test only value head')
     parser.add_argument('--l2_weight', type=float, default=0.0, help='l2 regularizer weight')
@@ -490,6 +492,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_hidden_blocks', type=int,  default=10, help='num of hidden blocks')
     parser.add_argument('--n_filters_per_layer', type=int,  default=32, help='num of filters per layer')
     parser.add_argument('--fc_policy_head', action='store_true',  default=False, help='fully-connected policy head? True for non-transferable policy head')
+    parser.add_argument('--fc_q_head', action='store_true',  default=False, help='fully-connected action-value q head? True for non-transferable q head')
     parser.add_argument('--verbose', action='store_true',  default=False, help='verbose printout?')
     parser.add_argument('--label_type', type=str, default='exclusive', help='exclusive or prob')
     parser.add_argument('--optimizer', type=str, default='adam', help='adam or momentum')
@@ -518,8 +521,10 @@ if __name__ == "__main__":
     hyperparameter['label_type']=args.label_type
     hyperparameter['optimizer']=args.optimizer
     hyperparameter['fc_policy_head']=args.fc_policy_head
+    hyperparameter['fc_q_head']=args.fc_q_head
     
     fc_policy_head=args.fc_policy_head
+    fc_q_head=args.fc_q_head
 
     if args.evaluate:
         print('Testing')
@@ -544,6 +549,6 @@ if __name__ == "__main__":
 
     print("Training for board size", args.boardsize)
     print("output directory: ", args.output_dir)
-    resnet = ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head)
+    resnet = ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head, fc_q_head=fc_q_head)
     resnet.train(src_train_data_path=args.input_file, boardsize=args.boardsize, hpr=hyperparameter, output_dir=args.output_dir,
                  resume_training=args.resume_train, previous_checkpoint=args.previous_checkpoint)

@@ -76,7 +76,7 @@ MoHexSearch::MoHexSearch(SgUctThreadStateFactory* factory, int maxMoves)
     }
     SetMoveSelect(SG_UCTMOVESELECT_COUNT);
     SetNumberThreads(1);    
-    SetRave(false);
+    SetRave(true);
     SetFirstPlayUrgency(0.35f);
     SetRandomizeRaveFrequency(30);
     SetUctBiasConstant(0.22f);

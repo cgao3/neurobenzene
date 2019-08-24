@@ -809,7 +809,7 @@ private:
     DfpnBoundType GetDeltaBound(DfpnBoundType delta) const;
 
     template <class T>
-    size_t ComputeMaxChildIndex(const std::vector<T>& childrenBounds) const;
+    size_t ComputeMaxChildIndex(const std::vector<T>& childrenBounds, float state_estimation) const;
 
     template <class T>
     void SelectChild(size_t& bestIndex, DfpnBounds& childMaxBounds,

@@ -13,6 +13,8 @@ restore_op_name = "save/restore_all"
 filename_tensor_name = "save/Const:0"
 clear_devices = False
 
+MIN_BOARD=5
+MAX_BOARD=19
 
 #freeze_graph.freeze_graph(input_graph_name, input_saver_def_path,
 # input_binary, input_checkpoint_path, output_node_names, restore_op_name, filename_tensor_name, output_graph_name, clear_devices,"")
@@ -25,10 +27,10 @@ def freeze(input_graph, input_checkpoint, is_binary=False, output_node_names='x_
 if __name__ == "__main__":
     #output_node_names="x_8x8_node,x_9x9_node,x_10x10_node,x_11x11_node,x_12x12_node,x_13x13_node," + "logits_8x8_node,logits_9x9_node,logits_10x10_node," + "logits_11x11_node,logits_12x12_node,logits_13x13_node" 
     output_node_names=""
-    for sz in range(8,20):
+    for sz in range(MIN_BOARD, MAX_BOARD+1):
         output_node_names=output_node_names+"x_"+repr(sz)+"x"+repr(sz)+"_node,"
-    for sz in range(8,20):
-        if(sz==19):
+    for sz in range(MIN_BOARD, MAX_BOARD+1):
+        if(sz==MAX_BOARD):
             output_node_names=output_node_names+"logits_"+repr(sz)+"x"+repr(sz)+"_node"
         else: 
             output_node_names=output_node_names+"logits_"+repr(sz)+"x"+repr(sz)+"_node,"
@@ -47,9 +49,9 @@ if __name__ == "__main__":
     #    output_node_names += ',is_training'
 
     if args.with_v_and_q:
-        for s in range(8,20,1):
+        for s in range(MIN_BOARD, MAX_BOARD+1, 1):
             output_node_names = output_node_names + ","+repr(s)+"x"+repr(s)+"_value"
-        for s in range(8,20,1):
+        for s in range(MIN_BOARD, MAX_BOARD+1, 1):
             output_node_names = output_node_names + ","+repr(s)+"x"+repr(s)+"_q_values"
         #output_node_names +=",valid_to_play_points"
 

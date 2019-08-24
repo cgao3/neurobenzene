@@ -649,7 +649,7 @@ void DfpnSolver::StoreVBounds(int id, size_t depth, TopMidData* d)
     d = d->parent;
     if (!d)
         return;
-    size_t maxChildIndex = ComputeMaxChildIndex(d->virtualBounds);
+    size_t maxChildIndex = ComputeMaxChildIndex(d->virtualBounds, d->data.m_evaluationScore);
     UpdateBounds(d->vBounds, d->virtualBounds, maxChildIndex);
     StoreVBounds(id, depth - 1, d);
 }
@@ -761,14 +761,14 @@ size_t DfpnSolver::TopMid(const DfpnBounds& maxBounds,
             }
         }
 
-        size_t maxChildIndex = ComputeMaxChildIndex(d.childrenData);
+        size_t maxChildIndex = ComputeMaxChildIndex(d.childrenData, d.data.m_evaluationScore);
 
         if (m_useGuiFx && depth == 0)
             m_guiFx.SetChildrenOnce(data.m_children, d.childrenData);
 
         UpdateBounds(data.m_bounds, d.childrenData, maxChildIndex);
 
-        size_t virtualMaxChildIndex = ComputeMaxChildIndex(d.virtualBounds);
+        size_t virtualMaxChildIndex = ComputeMaxChildIndex(d.virtualBounds, d.data.m_evaluationScore);
         UpdateBounds(vBounds, d.virtualBounds, virtualMaxChildIndex);
 
         if (midCalled)
@@ -880,7 +880,7 @@ size_t DfpnSolver::CreateData(DfpnData& data)
     int boardsize=m_state->Position().Width();
     int squared_size=boardsize*boardsize;
     std::vector<float> nn_score(squared_size);
-    std::vector<float> q_values(boardsize*boardsize);
+    std::vector<float> q_values(squared_size);
     //q_values.resize(squared_size);
     std::future<float> evalFuture;
     if(m_use_nn) evalFuture=std::async([this, &black_played_stones, &white_played_stones, &nn_score, &q_values, &boardsize]{
@@ -938,13 +938,13 @@ size_t DfpnSolver::CreateData(DfpnData& data)
     }
     else {
         float stateEvaluation=evalFuture.get();
-        stateEvaluation=0.0;
+        //stateEvaluation=0.0;
         for (BitsetIterator it(childrenBitset); it; ++it)
         {
             int x,y;
             HexPointUtil::pointToCoords(*it, x,y);
             HexEval score = nn_score[x*boardsize+y];
-            stateEvaluation += score*(1.0-q_values[x*boardsize+y]);
+            //stateEvaluation += score*(1.0-q_values[x*boardsize+y]);
             //std::cout<<HexPointUtil::ToString(*it)<<" prob:"<<score<<"\n";
             mvsc.push_back(std::make_pair(-score, *it));
 
@@ -1107,7 +1107,7 @@ size_t DfpnSolver::MID(const DfpnBounds& maxBounds,
         }
 
         // Index used for progressive widening
-        size_t maxChildIndex = ComputeMaxChildIndex(childrenData);
+        size_t maxChildIndex = ComputeMaxChildIndex(childrenData, data.m_evaluationScore);
 
         if (m_useGuiFx && depth == 0)
             m_guiFx.SetChildren(data.m_children, childrenData);
@@ -1164,7 +1164,7 @@ size_t DfpnSolver::MID(const DfpnBounds& maxBounds,
 
 template <class T>
 size_t DfpnSolver::ComputeMaxChildIndex(const std::vector<T>&
-                                        childrenBounds) const
+                                        childrenBounds, float state_estimation) const
 {
     BenzeneAssert(!childrenBounds.empty());
 
@@ -1175,6 +1175,8 @@ size_t DfpnSolver::ComputeMaxChildIndex(const std::vector<T>&
     if (numNonLosingChildren < 2)
         return childrenBounds.size();
 
+    double wf=WideningFactor();
+    //if (m_use_nn) wf=std::min(wf, static_cast<double>(state_estimation));
     // this needs experimenting!
     int childrenToLookAt = WideningBase() 
         + int(ceil(float(numNonLosingChildren) * WideningFactor()));
@@ -1425,7 +1427,7 @@ void DfpnSolver::PropagateBackwards(const Game& game, DfpnStates& pos)
         std::vector<DfpnData> childrenData(data.m_children.Size());
         for (size_t i = 0; i < data.m_children.Size(); ++i)
             LookupDataDB(childrenData[i], data.m_children, i, state);
-        size_t maxChildIndex = ComputeMaxChildIndex(childrenData);
+        size_t maxChildIndex = ComputeMaxChildIndex(childrenData, data.m_evaluationScore);
         UpdateBounds(data.m_bounds, childrenData, maxChildIndex);
         pos.Put(state, data);
     } while(!history.empty());
