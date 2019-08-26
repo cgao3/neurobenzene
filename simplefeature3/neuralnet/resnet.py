@@ -37,7 +37,7 @@ logits_nxn_node: where n is boardsize
 
 epsilon = 0.001
 
-MIN_BOARDSIZE=6
+MIN_BOARDSIZE=5
 MAX_BOARDSIZE=19
 
 class ResNet(object):
@@ -280,10 +280,11 @@ class ResNet(object):
             regularizer +=tf.nn.l2_loss(w)
         loss = loss + l2_loss_weight*regularizer
         
+        lr_init=hpr['learning_rate']
         if hpr['optimizer'] == 'adam':
-            optimizer = tf.train.AdamOptimizer().minimize(loss, name='train_op')
+            optimizer = tf.train.AdamOptimizer(learning_rate=lr_init).minimize(loss, name='train_op')
         else:
-            optimizer = tf.train.MomentumOptimizer(learning_rate=0.0005, momentum=0.90).minimize(loss, name='train_op')
+            optimizer = tf.train.MomentumOptimizer(learning_rate=lr_init, momentum=0.90).minimize(loss, name='train_op')
         #optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(loss, name='train_op')
 
         accuracy_op = tf.reduce_mean(tf.cast(tf.equal(
@@ -496,6 +497,7 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', action='store_true',  default=False, help='verbose printout?')
     parser.add_argument('--label_type', type=str, default='exclusive', help='exclusive or prob')
     parser.add_argument('--optimizer', type=str, default='adam', help='adam or momentum')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
 
     args = parser.parse_args()
 
@@ -522,6 +524,7 @@ if __name__ == "__main__":
     hyperparameter['optimizer']=args.optimizer
     hyperparameter['fc_policy_head']=args.fc_policy_head
     hyperparameter['fc_q_head']=args.fc_q_head
+    hyperparameter['learning_rate']=args.learning_rate
     
     fc_policy_head=args.fc_policy_head
     fc_q_head=args.fc_q_head

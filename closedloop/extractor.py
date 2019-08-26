@@ -71,11 +71,16 @@ class Extractor(object):
         #moveseq.append(arr[-1])
         return moveseq, arr[-2], arr[-1]
 
-    def postprocess(self, positionValuesFileName):
+    def postprocess(self, positionValuesFileName, just_shuffle=False):
         print("position-value postprocessing")
-        tt={}
         boardsize=self.boardsize
+        outfile=positionValuesFileName+"-post"
+        if just_shuffle:
+            cmd = "shuf "+positionValuesFileName+" >"+outfile
+            os.system(cmd) 
+            return 
         tenaryBoard=np.ndarray(shape=(boardsize*boardsize), dtype=np.int16)
+        tt={}
         with open(positionValuesFileName) as f:
             for line in f:
                 line=line.strip()
@@ -116,10 +121,8 @@ class Extractor(object):
                         neg_one_count = 1
                     tt[code]=(seq2, one_count, neg_one_count)
 
-        outfile=positionValuesFileName+"-post"
         print("size: ", len(tt))
-        print("saved as", outfile)
-        
+        print("saved as", outfile) 
         with open(outfile, "w") as f:
             for line in tt.values():
                 #print(line)
@@ -150,16 +153,22 @@ output:
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input_file", type=str, default=None, help='input shf games')
-    parser.add_argument("--output_file", type=str, default=None, help='output data file name')
+    parser.add_argument("--output_file", type=str, default=sys.stdout, help='output data file name')
     parser.add_argument("--boardsize", type=int, default=13, help='boardsize')
+    parser.add_argument("--post_process", type=bool, default=False, help="whether do postprocessing, i.e., average the value of same game state")
     args=parser.parse_args()
     import sys
     if not args.input_file: 
         print("please indicate --input_file") 
         exit(1)
+    if not args.output_file:
+        print("output file should not be None")
+        exit(1)
     ext=Extractor(args.input_file, args.output_file, boardsize=args.boardsize)
     ext.extract()
     ext.close()
-    if args.output_file!=None: 
-        ext.postprocess(args.output_file)
+    if args.post_process:
+        ext.postprocess(args.output_file, just_shuffle=False)
+    else:
+        ext.postprocess(args.output_file, just_shuffle=True)
     exit(0)
