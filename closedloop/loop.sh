@@ -61,17 +61,17 @@ dirichlet_noise=0.03
 
 n_train_games=$((n_games_per_ite*Npp)) #num of train games is number of wokers * num games per worker per iteration
 #below are nn parameters
-epoch_limit_per_train=10
+epoch_limit_per_train=5
 n_blocks=10
 n_filters_per_layer=32
 fc_q_head=1 #1 with fully-connected q head, 0 otherwise
 fc_p_head=0 #1 with fully-connected p head, 0 otherwise
 l2_regularize=0.0001
-lr_init=0.2
+lr_init=0.005
 optimizer="momentum"
 lr_decay=0.9
 
-rm "config*.htp" 2>/dev/null && echo "remove obsolete config files"
+rm config*.htp 2>/dev/null && echo "remove obsolete config files"
 
 echo "========
 boardsize: $boardsize x $boardsize

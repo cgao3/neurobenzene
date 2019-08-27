@@ -998,9 +998,10 @@ void MoHexEngine::SelfPlay(HtpCommand& cmd)
         {
             double score;
             moveProbs.clear();
-            HexPoint move = m_player.GenMove(state, game,
-                                             m_pe.SyncBoard(state.Position()),
-                                             m_player.MaxTime(), score, &moveProbs); 
+            HexPoint move;
+            if (moveseq.size() <= m_player.GetDitherThreshold())
+                move = m_player.GenMove(state, game, m_pe.SyncBoard(state.Position()), m_player.MaxTime(), score, &moveProbs); 
+            else move = m_player.GenMove(state, game, m_pe.SyncBoard(state.Position()), m_player.MaxTime(), score);
             if(moveProbs.size()==0){
                 moveProbs.push_back(std::make_pair(move, 1.0));
             }
