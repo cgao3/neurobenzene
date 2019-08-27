@@ -1,0 +1,8 @@
+param_mohex max_memory 1000000000
+param_mohex reuse_subtree 1
+param_mohex extend_unstable_search 0 
+param_mohex perform_pre_search 0 
+param_mohex max_time 999
+param_mohex use_playout_const 0.0 
+param_mohex use_rave 1
+param_mohex knowledge_threshold "9999999"
