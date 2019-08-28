@@ -21,6 +21,11 @@
 # We start from a pre-trained net on MoHex 2.0 self-play games. 
 # We first generated a set of games; learning begins from those games.
 
+max_number() {
+    printf "%s\n" "$@" | sort -rg | head -n1
+}
+
+
 if [ $# -lt 7 ] ; then
     echo "Usage: $0 mohex_exe numberOfSimulationsPerMove numberOfGamesPerWokerPerIteration numberOfIterations option[selfplay|selfplaytrain] numOfParallelProcess boardsize"
     echo "Note: games will be saved at storage/, named as boardsizexboardsize_simPerMove_games.txt, nn model will be saved at selfplayNN/ "
@@ -69,7 +74,8 @@ fc_p_head=0 #1 with fully-connected p head, 0 otherwise
 l2_regularize=0.0001
 lr_init=0.005
 optimizer="momentum"
-lr_decay=0.9
+lr_decay=0.95
+lr_min=0.00001
 
 rm config*.htp 2>/dev/null && echo "remove obsolete config files"
 
@@ -179,6 +185,8 @@ do
     lr=$lr_init
     y=$((ite + 1)) #decay**(ite+1)
     lr=`echo "$lr*e($y*l($lr_decay))" | bc -l` #x^y = e^{y*log(x)}
+    lr=$(max_number $lr $lr_min)
+    echo "learning_rate: $lr"
     with_fc_q_head=""
     with_fc_p_head=""
     if [[ $fc_q_head -gt 0 ]] ; then

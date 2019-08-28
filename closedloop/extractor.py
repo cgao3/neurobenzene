@@ -155,7 +155,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_file", type=str, default=None, help='input shf games')
     parser.add_argument("--output_file", type=str, default=sys.stdout, help='output data file name')
     parser.add_argument("--boardsize", type=int, default=13, help='boardsize')
-    parser.add_argument("--post_process", type=bool, default=False, help="whether do postprocessing, i.e., average the value of same game state")
+    parser.add_argument("--post_process", type=bool, default=True, help="whether do postprocessing, i.e., average the value of same game state")
     args=parser.parse_args()
     import sys
     if not args.input_file: 

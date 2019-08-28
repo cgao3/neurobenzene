@@ -481,7 +481,7 @@ if __name__ == "__main__":
     parser.add_argument('--topk', type=int, default=1, help='top k in testing mode')
 
     parser.add_argument('--policy_loss_weight', default=1.0, type=float, help='policy gradient weight in loss function')
-    parser.add_argument('--value_loss_weight', default=0.1, type=float, help='value loss weight')
+    parser.add_argument('--value_loss_weight', default=1.0, type=float, help='value loss weight')
     parser.add_argument('--value_penalty_weight', default=0.25, type=float, help='value inconsistency weight')
     parser.add_argument('--evaluate_value', action='store_true', default=False, help='to perform test only value head')
     parser.add_argument('--l2_weight', type=float, default=0.0, help='l2 regularizer weight')
