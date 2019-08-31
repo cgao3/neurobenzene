@@ -59,6 +59,10 @@ save_dir=./storage
 mkdir -p $save_dir
 nn_model_dir=./selfplayNN
 mkdir -p $nn_model_dir
+
+log_dir=./log_games
+mkdir -p $log_dir
+
 INF=10000000
 
 ditherthreshold=10
@@ -78,6 +82,18 @@ lr_decay=0.95
 lr_min=0.00001
 
 rm config*.htp 2>/dev/null && echo "remove obsolete config files"
+
+n_gpus=0
+type nvidia-smi >/dev/null 2>&1
+if [[ $? -eq 0 ]]; then
+    n_gpus=`nvidia-smi --query-gpu=name --format=csv,noheader | wc -l 2>/dev/null`
+fi
+
+if [[ -z $n_gpus ]]; then
+    n_gpus=0
+fi
+echo "num of gpus: $n_gpus"
+
 
 echo "========
 boardsize: $boardsize x $boardsize
@@ -118,9 +134,15 @@ selfplay() {
     N=$1
     for((i=1; i<=$N; i++))
     do
+        if [[ $n_gpus -gt 0 ]]; then 
+            ii=$((i-1)) 
+            export CUDA_VISIBLE_DEVICES=$((ii % n_gpus))
+            echo $CUDA_VISIBLE_DEVICES
+        fi
         SEED=$(($RANDOM))
-        $mohex_exe --seed $SEED <$2 >./${hname}_selfplay_log.out 2>&1 &
+        $mohex_exe --seed $SEED <$2 >$log_dir/${hname}_selfplay${i}_log.out 2>&1 &
     done
+    unset CUDA_VISIBLE_DEVICES
     wait 
 }
 

@@ -68,16 +68,18 @@ void NNEvaluator::load_nn_model(std::string model_path){
     this->m_graph=graph;
     TF_SessionOptions* opts = TF_NewSessionOptions();
     
-    uint8_t config[13]= {0x32, 0xb, 0x9, 0x9a, 0x99, 0x99, 0x99, 0x99, 0x99, 0xb9, 0x3f, 0x20, 0x1};
-    TF_SetConfig(opts, (void*)config, 13, status);
+    uint8_t config[15]= {0x32, 0xb, 0x9, 0xb8, 0x1e, 0x85, 0xeb, 0x51, 0xb8, 0xae, 0x3f, 0x20, 0x1, 0x38, 0x1};
+    TF_SetConfig(opts, (void*)config, 15, status);
     /*
        comes from:
        import tensorflow as tf
-       gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1, allow_growth=True)
-       config=tf.ConfigProto(gpu_options)
-       serialized = config.SerializeToString()
-       print(list(map(hex, serialized)))
-       >> ['0x32', '0xb', '0x9', '0x9a', '0x99', '0x99', '0x99', '0x99', '0x99', '0xb9', '0x3f', '0x20', '0x1']
+       config=tf.ConfigProto()
+       config.gpu_options.allow_growth=True
+       config.allow_soft_placement=True
+	   config.gpu_options.per_process_gpu_memory_fraction=0.06
+	   x=config.SerializeToString()
+       print(list(map(hex,x)))
+       ['0x32', '0xb', '0x9', '0xb8', '0x1e', '0x85', '0xeb', '0x51', '0xb8', '0xae', '0x3f', '0x20', '0x1', '0x38', '0x1']
     */
     //TF_SetConfig(opts, )
     //TF_Session* sess = TF_NewSession(graph, options, status);
