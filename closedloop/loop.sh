@@ -81,6 +81,11 @@ optimizer="momentum"
 lr_decay=0.95
 lr_min=0.00001
 
+v_coeff=1.0
+q_coeff=0.0 #change 0.0 for 2HNN
+q_all_coeff=0.0 # 0.0 for 2HNN
+value_penalty_weight=0.0 # 0.0 for 2HNN
+
 rm config*.htp 2>/dev/null && echo "remove obsolete config files"
 
 n_gpus=0
@@ -219,7 +224,7 @@ do
         echo "fc p head"
         with_fc_p_head="--fc_p_head"
     fi
-    python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --label_type='prob' --input_file=${train_file}.out-post --output_dir=$nn_model_dir/ --max_train_step=$INF --resume_train --previous_checkpoint=$previous_checkpoint --epoch_limit=$epoch_limit_per_train --boardsize=$boardsize  --l2_weight=$l2_regularize --n_filters_per_layer=$n_filters_per_layer --optimizer=$optimizer --learning_rate=$lr $with_fc_q_head $with_fc_p_head > /tmp/train_logs.out 2>/tmp/train.err 
+    python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --label_type='prob' --input_file=${train_file}.out-post --output_dir=$nn_model_dir/ --max_train_step=$INF --resume_train --previous_checkpoint=$previous_checkpoint --epoch_limit=$epoch_limit_per_train --boardsize=$boardsize  --l2_weight=$l2_regularize --n_filters_per_layer=$n_filters_per_layer --optimizer=$optimizer --learning_rate=$lr $with_fc_q_head $with_fc_p_head --v_coeff=$v_coeff --q_coeff=$q_coeff --q_all_coeff=$q_all_coeff --value_penalty_weight=$value_penalty_weight > /tmp/train_logs.out 2>/tmp/train.err 
 
     echo "========="
     ckpt=$nn_model_dir/${boardsize}x${boardsize}train$ite.txt.out-post.ckpt-$epoch_limit_per_train
@@ -228,7 +233,7 @@ do
         echo "graph definition $graph found"
     else 
         echo "no existing graph $graph, creating by running evaluation on the training dataset" 
-        python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --input_file=${train_file}.out-post --evaluate --previous_checkpoint=$previous_checkpoint --n_filters_per_layer=$n_filters_per_layer >/tmp/evaluate.out 2>/tmp/evaluate.err 
+        python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --input_file=${train_file}.out-post --evaluate --previous_checkpoint=$previous_checkpoint $with_fc_q_head $with_fc_p_head --n_filters_per_layer=$n_filters_per_layer >/tmp/evaluate.out 2>/tmp/evaluate.err 
     fi
     echo "converting neural net model to constant graph and save to $nn_model_dir"
     python ../simplefeature3/freeze_graphs/freeze_graph_main.py --input_graph=$graph --checkpoint=$ckpt >/tmp/freeze_log.txt  2>&1
