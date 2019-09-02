@@ -355,10 +355,11 @@ class ResNet(object):
             print("Training finished.")
             saver.save(sess, os.path.join(output_dir, os.path.basename(src_train_data_path)+".ckpt"), global_step=epoch_num)
 
-        #print('reset the graph for inference batch normalization!') # can we do better?
-        #tf.reset_default_graph()
-        #self.build_graph(is_training_phase=False)
-        #tf.train.write_graph(tf.get_default_graph(), output_dir, 'resnet.graphpbtxt', as_text=True)
+        print('reset the graph for inference batch normalization!') # can we do better?
+        tf.reset_default_graph()
+        self.build_graph(is_training_phase=False)
+        save_name="resnet_evaluate_"+repr(hpr['n_hidden_blocks'])+"_"+repr(hpr['n_filters_per_layer'])
+        tf.train.write_graph(tf.get_default_graph(), output_dir, save_name+'.pbtext', as_text=True)
         #tf.train.write_graph(tf.get_default_graph(), output_dir, 'resnet.graphpb', as_text=False)
         accu_writer.close()
         reader.close_file()
@@ -531,13 +532,13 @@ if __name__ == "__main__":
 
     if args.evaluate:
         print('Testing')
-        resnet=ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head)
+        resnet=ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head, fc_q_head=fc_q_head)
         resnet.evaluate_on_test_data(args.input_file, args.boardsize, hpr=hyperparameter, saved_checkpoint=args.previous_checkpoint)
         exit(0)
 
     if args.evaluate_value:
         print('Only Value Testing')
-        resnet=ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head)
+        resnet=ResNet(num_blocks=n_hidden_blocks, num_filters=n_filters_per_layer, fc_policy_head=fc_policy_head, fc_q_head=fc_q_head)
         resnet.evaluate_value_on_test_data(args.input_file, args.boardsize, hpr=hyperparameter, saved_checkpoint=args.previous_checkpoint)
         exit(0)
 
