@@ -1,8 +1,26 @@
+param_mohex max_games 200
+#default uct_bias_constant 0.22, use_rave
+param_mohex uct_bias_constant 0.22
+param_mohex use_rave 1
+
+#default 0, i.e., only hard-max; soft-max selection temperature 1.0
+param_mohex moveselect_ditherthreshold 0
+param_mohex dither_temperature 1.0
+
+#default 0.0, i.e., no dirichlet noise
+param_mohex root_dirichlet_prior 0
+
+#default 2.47, puct constant
+param_mohex progressive_bias 2.47
+
+#default 10
+param_mohex expand_threshold 10
+
+param_mohex use_playout_const 0.0 
+
 param_mohex max_memory 1000000000
 param_mohex reuse_subtree 1
 param_mohex extend_unstable_search 0 
 param_mohex perform_pre_search 0 
 param_mohex max_time 999
-param_mohex use_playout_const 0.0 
-param_mohex use_rave 1
 param_mohex knowledge_threshold "9999999"

@@ -405,7 +405,7 @@ class ResNet(object):
             print("overall value loss on test dataset", src_test_data, " is ", overall_loss / batch_no)
             print('saving resnet forward evaluation graph to ./')
             save_name="resnet_evaluate_value_"+repr(hpr['n_hidden_blocks'])+"_"+repr(hpr['n_filters_per_layer'])
-            tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pbtxt', as_text=True)
+            tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pbtext', as_text=True)
             tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pb', as_text=False)
             reader.close_file()
     '''
@@ -461,7 +461,7 @@ class ResNet(object):
             print("overall value loss on test dataset", src_test_data, " is ", overall_loss / batch_no)
             print('saving resnet forward evaluation graph to ./')
             save_name="resnet_evaluate_"+repr(hpr['n_hidden_blocks'])+"_"+repr(hpr['n_filters_per_layer'])
-            tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pbtxt', as_text=True)
+            tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pbtext', as_text=True)
             tf.train.write_graph(tf.get_default_graph(), './', save_name+'.pb', as_text=False)
             reader.close_file()
 

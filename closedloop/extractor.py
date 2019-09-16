@@ -71,7 +71,7 @@ class Extractor(object):
         #moveseq.append(arr[-1])
         return moveseq, arr[-2], arr[-1]
 
-    def postprocess(self, positionValuesFileName, just_shuffle=False):
+    def postprocess(self, positionValuesFileName, just_shuffle=False, dithered_threshold=0):
         print("position-value postprocessing")
         boardsize=self.boardsize
         outfile=positionValuesFileName+"-post"
@@ -81,6 +81,7 @@ class Extractor(object):
             return 
         tenaryBoard=np.ndarray(shape=(boardsize*boardsize), dtype=np.int16)
         tt={}
+        outfile2=positionValuesFileName+"_dithered"+"-post"
         with open(positionValuesFileName) as f:
             for line in f:
                 line=line.strip()
@@ -122,15 +123,20 @@ class Extractor(object):
                     tt[code]=(seq2, one_count, neg_one_count)
 
         print("size: ", len(tt))
-        print("saved as", outfile) 
-        with open(outfile, "w") as f:
-            for line in tt.values():
-                #print(line)
-                mq, one_count, neg_one_count = line
-                for m in mq:
-                    f.write(m+' ')
-                res=(one_count - neg_one_count )*1.0/(one_count+neg_one_count)
-                f.write(repr(res)+'\n')
+        print("saved as", outfile, outfile2) 
+        f_normal=open(outfile, "w")
+        f_dithered=open(outfile2, "w")
+        for line in tt.values():
+            #print(line)
+            mq, one_count, neg_one_count = line
+            n_moves=len(mq)
+            f=f_dithered if n_moves <= dithered_threshold else f_normal
+            for m in mq:
+                f.write(m+' ')
+            res=(one_count - neg_one_count )*1.0/(one_count+neg_one_count)
+            f.write(repr(res)+'\n')
+        f_dithered.close()
+        f_normal.close()
 
     def close(self):
         self.outwriter.close()
@@ -155,7 +161,8 @@ if __name__ == "__main__":
     parser.add_argument("--input_file", type=str, default=None, help='input shf games')
     parser.add_argument("--output_file", type=str, default=sys.stdout, help='output data file name')
     parser.add_argument("--boardsize", type=int, default=13, help='boardsize')
-    parser.add_argument("--post_process", type=bool, default=True, help="whether do postprocessing, i.e., average the value of same game state")
+    parser.add_argument("--post_process", type=str, default='only_shuffle', help="only shuffle or average the value of same game state")
+    parser.add_argument("--dithered_threshold", type=int, default=0, help="dither threshold")
     args=parser.parse_args()
     import sys
     if not args.input_file: 
@@ -167,8 +174,8 @@ if __name__ == "__main__":
     ext=Extractor(args.input_file, args.output_file, boardsize=args.boardsize)
     ext.extract()
     ext.close()
-    if args.post_process:
-        ext.postprocess(args.output_file, just_shuffle=False)
+    if args.post_process == "only_shuffle":
+        ext.postprocess(args.output_file, just_shuffle=True, dithered_threshold=args.dithered_threshold)
     else:
-        ext.postprocess(args.output_file, just_shuffle=True)
+        ext.postprocess(args.output_file, just_shuffle=False, dithered_threshold=args.dithered_threshold)
     exit(0)
