@@ -84,7 +84,7 @@ fc_p_head=0 #1 with fully-connected p head, 0 otherwise
 l2_regularize=0.0001
 lr_init=0.005
 optimizer="momentum"
-lr_decay=0.95
+lr_decay=0.90
 lr_min=0.000005
 
 v_coeff=1.0
@@ -172,7 +172,7 @@ do
     ls $nn_model_dir/*.pb 1>/dev/null 2>/dev/null
     if [[ $? -eq 0 ]] ; then
         previous_pb=`ls -t $nn_model_dir/*.pb | head -n1 2>/dev/null`
-        mv $previous_pb $constant_nn_model_dir
+        cp $previous_pb $constant_nn_model_dir
         nn_basename=`basename $previous_pb`
         nn_to_load=`(cd $(dirname $previous_pb) && (pwd))`/`basename $previous_pb`
     fi
