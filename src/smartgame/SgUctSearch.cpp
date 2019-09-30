@@ -793,7 +793,8 @@ SgUctValue SgUctSearch::GetValueEstimate(bool useRave, const SgUctNode& child) c
     if (hasValue)
         return value / weightSum;
     else
-        return m_firstPlayUrgency;
+        //return m_firstPlayUrgency;
+        return InverseEval(child.NeuroActionValue()); //inverse, because it was 
 }
 
 /** Optimized version of GetValueEstimate() if RAVE and not other
@@ -854,7 +855,9 @@ SgUctValue SgUctSearch::GetValueEstimateRave(bool useRave, const SgUctNode& chil
     else if (useRave)
         value = raveStats.Mean();
     else
-        value = m_firstPlayUrgency;
+        //value = m_firstPlayUrgency;
+        value = InverseEval(child.NeuroActionValue()); //inverse, because it was 
+    //with respect to player-to-play after taking that action
     SG_ASSERT(m_numberThreads > 1
               || fabs(value - GetValueEstimate(m_rave, child)) < 1e-3/*epsilon*/);
     return value;
