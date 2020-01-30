@@ -90,11 +90,12 @@ lr_min=0.000005
 v_coeff=1.0
 q_coeff=1.0 #change 0.0 for 2HNN
 q_all_coeff=1.0 # 0.0 for 2HNN
+q_all_coeff_dithered=1.0 # 0.0 for 2HNN
 value_penalty_weight=1.0 # 0.0 for 2HNN
 
 #post_process="only_shuffle" # used for 2HNN
 post_process="compute_average" 
-
+dynamic_dithered_split=False
 
 rm config*.htp 2>/dev/null && echo "remove obsolete config files"
 
@@ -202,7 +203,8 @@ do
     echo "select most recent $n_train_games selfplay games from $gamefilepath, dump to $train_file"
     tail -$n_train_games  $gamefilepath > $train_file
     echo "extracting games to examples"
-    python extractor.py --post_process=$post_process --input_file=$train_file --output_file=$train_file.out --boardsize=$boardsize --dithered_threshold=$dithered_threshold
+    #--dithered_dynamic
+    python extractor.py --post_process=$post_process --input_file=$train_file --output_file=$train_file.out --boardsize=$boardsize --dithered_threshold=$dithered_threshold --dithered_dynamic=$dynamic_dithered_split
     wait
 
     previous_checkpoint=""
@@ -237,8 +239,8 @@ do
     input_file_dithered=${train_file}.out_dithered-post
     input_file_normal=${train_file}.out-post
     if [[ -f $input_file_dithered && -s $input_file_dithered ]]; then
-        echo "dithered not empty, train on it first, action value augmentation turned off (--q_all_coeff=0.0)"
-        python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --label_type='prob' --input_file=$input_file_dithered --output_dir=$nn_model_dir/ --max_train_step=$INF --resume_train --previous_checkpoint=$previous_checkpoint --epoch_limit=$epoch_limit_per_train --boardsize=$boardsize  --l2_weight=$l2_regularize --n_filters_per_layer=$n_filters_per_layer --optimizer=$optimizer --learning_rate=$lr $with_fc_q_head $with_fc_p_head --v_coeff=$v_coeff --q_coeff=$q_coeff --q_all_coeff=0.0 --value_penalty_weight=$value_penalty_weight > /tmp/train_logs_dithered.out 2>/tmp/train_log_dithered.err 
+        echo "dithered not empty, train on it first, action value augmentation using (--q_all_coeff_dithered)"
+        python ../simplefeature3/neuralnet/resnet.py --verbose --n_hidden_blocks=$n_blocks --label_type='prob' --input_file=$input_file_dithered --output_dir=$nn_model_dir/ --max_train_step=$INF --resume_train --previous_checkpoint=$previous_checkpoint --epoch_limit=$epoch_limit_per_train --boardsize=$boardsize  --l2_weight=$l2_regularize --n_filters_per_layer=$n_filters_per_layer --optimizer=$optimizer --learning_rate=$lr $with_fc_q_head $with_fc_p_head --v_coeff=$v_coeff --q_coeff=$q_coeff --q_all_coeff=$q_all_coeff_dithered --value_penalty_weight=$value_penalty_weight > /tmp/train_logs_dithered.out 2>/tmp/train_log_dithered.err 
 
         previous_checkpoint=`ls -t $nn_model_dir/${boardsize}x${boardsize}*.meta | head -n1 2>/dev/null`
         suffix=".meta"
