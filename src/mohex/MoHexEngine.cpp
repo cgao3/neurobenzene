@@ -1053,6 +1053,9 @@ void MoHexEngine::SelfPlay(HtpCommand& cmd)
                     }
                 } else if (HexEvalUtil::IsLoss(score)){
                     score=1.0;
+                    if(state.ToPlay() == !toplay_color){
+                        cnt_toplay_win += 1;
+                    }
                 } else {
                     BenzeneAssertShutdown("SHOULD Not Happen! Fatal error!", "MoHexEngine.cpp", 994, "SelfPlay");
                 }
