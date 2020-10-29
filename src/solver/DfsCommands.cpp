@@ -105,8 +105,8 @@ void DfsCommands::CmdParamSolver(HtpCommand& cmd)
             << m_solver.BackupIceInfo() << '\n'
             << "[bool] shrink_proofs "
             << m_solver.ShrinkProofs() << '\n'
-            << "[bool] use_decompositions "
-            << m_solver.UseDecompositions() << '\n'
+            //<< "[bool] use_decompositions "
+            //<< m_solver.UseDecompositions() << '\n'
             << "[bool] use_guifx " 
             << m_solver.UseGuiFx() << '\n'
             << "[string] move_ordering "
@@ -123,8 +123,8 @@ void DfsCommands::CmdParamSolver(HtpCommand& cmd)
             m_solver.SetBackupIceInfo(cmd.Arg<bool>(1));
         else if (name == "shrink_proofs")
             m_solver.SetShrinkProofs(cmd.Arg<bool>(1));
-        else if (name == "use_decompositions")
-            m_solver.SetUseDecompositions(cmd.Arg<bool>(1));
+        //else if (name == "use_decompositions")
+        //    m_solver.SetUseDecompositions(cmd.Arg<bool>(1));
         else if (name == "use_guifx")
             m_solver.SetUseGuiFx(cmd.Arg<bool>(1));
         else if (name == "move_ordering")
@@ -152,8 +152,8 @@ void DfsCommands::CmdSolveState(HtpCommand& cmd)
     cmd.CheckNuArg(1);
     HexColor color = HtpUtil::ColorArg(cmd, 0);
     HexBoard& brd = m_env.SyncBoard(m_game.Board());
-    if (brd.ICE().FindPermanentlyInferior())
-        throw HtpFailure("Permanently inferior not supported in DfsSolver.");
+    //if (brd.ICE().FindPermanentlyInferior())
+    //    throw HtpFailure("Permanently inferior not supported in DfsSolver.");
     HexState state(m_game.Board(), color);
     DfsSolutionSet solution;
     HexColor winner = m_solver.Solve(state, brd, solution, m_positions);
@@ -181,8 +181,8 @@ void DfsCommands::CmdSolverFindWinning(HtpCommand& cmd)
     cmd.CheckNuArg(1);
     HexColor color = HtpUtil::ColorArg(cmd, 0);
     HexBoard& brd = m_env.SyncBoard(m_game.Board());
-    if (brd.ICE().FindPermanentlyInferior())
-        throw HtpFailure("Permanently inferior not supported in DfsSolver");
+    //if (brd.ICE().FindPermanentlyInferior())
+    //    throw HtpFailure("Permanently inferior not supported in DfsSolver");
     brd.ComputeAll(color);
     bitset_t consider = (EndgameUtil::IsDeterminedState(brd, color) ?
                          brd.GetPosition().GetEmpty() :

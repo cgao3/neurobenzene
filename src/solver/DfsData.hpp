@@ -39,6 +39,12 @@ struct DfsData
         but the definition is fuzzy. */
     HexPoint m_bestMove;
 
+    /** Whether is solved or not, default false*/
+    bool m_is_solved;
+
+    /** Whether is a decomposition node or not, default false */
+    bool m_is_decomposition_node;
+
     //--------------------------------------------------------------------
 
     /** Contructs state with default values. */
@@ -89,7 +95,9 @@ inline DfsData::DfsData(bool win, int numStates, int numMoves,
       m_flags(0),
       m_numStates(numStates),
       m_numMoves(numMoves),
-      m_bestMove(bestMove)
+      m_bestMove(bestMove),
+      m_is_solved(false), 
+      m_is_decomposition_node(false)
 { 
 }
 

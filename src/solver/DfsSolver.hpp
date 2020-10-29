@@ -59,10 +59,10 @@ struct DfsBranchStatistics
         
     /** Decompositions found; if black is to move, it must be a
         decomposition for white. */
-    std::size_t decompositions;
+    // std::size_t decompositions;
 
     /** Decompositions where the player to move won. */
-    std::size_t decompositions_won;
+    // std::size_t decompositions_won;
     
     /** Total number of moves to consider in expanded states. 
         Includes moves that are later pruned (by mustplay or
@@ -95,8 +95,8 @@ inline DfsBranchStatistics::DfsBranchStatistics()
       explored_states(0), 
       expanded_states(0), 
       minimal_explored(0), 
-      decompositions(0), 
-      decompositions_won(0), 
+      //decompositions(0), 
+      //decompositions_won(0), 
       moves_to_consider(0), 
       winning_expanded(0), 
       branches_to_win(0),
@@ -112,8 +112,8 @@ inline void DfsBranchStatistics::operator+=(const DfsBranchStatistics& o)
     explored_states += o.explored_states;
     expanded_states += o.expanded_states;
     minimal_explored += o.minimal_explored;
-    decompositions += o.decompositions;
-    decompositions_won += o.decompositions_won;
+    //decompositions += o.decompositions;
+    //decompositions_won += o.decompositions_won;
     moves_to_consider += o.moves_to_consider;
     winning_expanded += o.winning_expanded;
     branches_to_win += o.branches_to_win;
@@ -250,10 +250,10 @@ public:
     /** Controls whether gamestates decomposible into separate
         components have each side solved separately and the proofs
         combined as necessary. */
-    bool UseDecompositions() const;
+    //bool UseDecompositions() const;
 
     /** See UseDecompositions() */
-    void SetUseDecompositions(bool enable);
+    //void SetUseDecompositions(bool enable);
 
     /** Depth from root in which the current variation is printed. */
     int ProgressDepth() const;
@@ -302,6 +302,10 @@ public:
     /** Returns histogram of last search. */
     DfsHistogram Histogram() const;
 
+    /** */
+    void TTWrite(const HexState& state, const DfsData& data);
+    bool TTRead(const HexState& state,  DfsData& data);
+
 private:
 
     //------------------------------------------------------------------------
@@ -336,7 +340,7 @@ private:
     boost::scoped_ptr<HexState> m_state;
 
     /** See UseDecompositions() */
-    bool m_use_decompositions;
+    //bool m_use_decompositions;
 
     /** See UpdateDepth() */
     std::size_t m_update_depth;
@@ -365,9 +369,9 @@ private:
     
     void UndoMove(HexPoint cell);
 
-    bool CheckTransposition(DfsData& state) const;
+    //bool CheckTransposition(DfsData& state) const;
 
-    void StoreState(const DfsData& state, const bitset_t& proof);
+    //void StoreState(const DfsData& state, const bitset_t& proof);
 
     bool CheckAbort();
     
@@ -375,32 +379,30 @@ private:
 
     bool HandleTerminalNode(DfsData& state, bitset_t& proof) const;
 
-    bool OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution, 
-                    std::vector<HexMoveValue>& moves);
+    bool OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution, std::vector<HexMoveValue>& moves);
+    bool OrderMoves_v2(std::vector<HexMoveValue>& moves, const HexColor color);
 
     bool SolveState(PointSequence& variation, DfsSolutionSet& solution);
 
-    bool SolveDecomposition(PointSequence& variation,
-                            DfsSolutionSet& solution, HexPoint group);
+    //bool SolveDecomposition(PointSequence& variation, DfsSolutionSet& solution, HexPoint group);
 
     bool SolveInteriorState(PointSequence& variation, 
                             DfsSolutionSet& solution);
 
-    void HandleProof(const PointSequence& variation,
-                     bool winning_state, DfsSolutionSet& solution);
+    //void HandleProof(const PointSequence& variation, bool winning_state, DfsSolutionSet& solution);
 };
 
 //----------------------------------------------------------------------------
 
-inline bool DfsSolver::UseDecompositions() const
-{
-    return m_use_decompositions;
-}
+//inline bool DfsSolver::UseDecompositions() const
+//{
+//    return m_use_decompositions;
+//}
 
-inline void DfsSolver::SetUseDecompositions(bool enable)
-{
-    m_use_decompositions = enable;
-}
+//inline void DfsSolver::SetUseDecompositions(bool enable)
+//{
+//   m_use_decompositions = enable;
+//}
 
 inline std::size_t DfsSolver::UpdateDepth() const
 {

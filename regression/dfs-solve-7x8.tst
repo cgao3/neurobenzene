@@ -5,7 +5,8 @@
 boardsize 7 8
 
 # Must turn of perm.inf. for solver!
-param_solver_ice find_permanently_inferior 0
+
+param_dfs move_ordering 6
 
 play b a1
 11 dfs-solve-state w
