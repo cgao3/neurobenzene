@@ -137,8 +137,8 @@ bool DfsSolver::HandleTerminalNode(DfsData& data, bitset_t& proof) const
         data.m_numMoves = 0;
         data.m_numStates = 1;
         m_histogram.terminal[numstones]++;
-        //proof = ProofUtil::MaximumProofSet(*m_workBrd, m_state->ToPlay());
-        proof = m_workBrd->GetPosition().GetEmpty() | m_workBrd->GetPosition().GetPlayed(m_state->ToPlay());
+        proof = ProofUtil::MaximumProofSet(*m_workBrd, m_state->ToPlay());
+        //proof = m_workBrd->GetPosition().GetEmpty() | m_workBrd->GetPosition().GetPlayed(m_state->ToPlay());
         return true;
     } 
     else if (EndgameUtil::IsLostGame(*m_workBrd, m_state->ToPlay(), proof)) 
@@ -147,8 +147,8 @@ bool DfsSolver::HandleTerminalNode(DfsData& data, bitset_t& proof) const
         data.m_numMoves = 0;
         data.m_numStates = 1;
         m_histogram.terminal[numstones]++;
-        proof = m_workBrd->GetPosition().GetEmpty() | m_workBrd->GetPosition().GetPlayed(!m_state->ToPlay());
-        //proof = ProofUtil::MaximumProofSet(*m_workBrd, !m_state->ToPlay());
+        proof = ProofUtil::MaximumProofSet(*m_workBrd, !m_state->ToPlay());
+        //proof = m_workBrd->GetPosition().GetEmpty() | m_workBrd->GetPosition().GetPlayed(!m_state->ToPlay());
         return true;
     } 
     return false;
@@ -285,6 +285,31 @@ bool DfsSolver::SolveInteriorState(PointSequence& variation,
     bool winning_state = OrderMoves(mustplay, solution, moves);
     //bool winning_state = OrderMoves_v2(moves, color);
 
+    int k=moves.size()/3;
+    std::vector<HexMoveValue> failed;
+    if (k>=1){ // do grouping
+        std::vector<int> indices; 
+        RandomKPartition(moves.size(), k, indices);
+        int prev = 0;
+        for(int i=0; i<indices.size(); i++) {
+            int idx = indices[i]; 
+            std::vector<HexMoveValue> group(moves.begin()+prev, moves.begin()+indices[i]);
+            PlayMoves(color, group);
+            bool res = SolveState(variation, solution);
+            UndoMoves(group);
+           if (res == false) {
+              if ((idx - prev) == 1) return true;
+              else { 
+                for(HexMoveValue m: group){
+                    failed.push_back(m);
+                }
+              }
+           }
+        }
+    } else {
+        failed = moves;
+    }
+
     winning_state = false; //force order moves not set this 
     if (mustplay != original_mustplay || ori_proof != solution.proof){
         LogInfo()<< "wrong.. how could them not equal";
@@ -373,6 +398,31 @@ void DfsSolver::PlayMove(HexPoint cell)
 
 }
 
+void DfsSolver::PlayMoves(HexColor color, std::vector<HexMoveValue> &moves){
+    m_statistics.played++;
+    bitset_t to_be_played;
+    for (HexMoveValue &move: moves){
+        HexPoint cell = move.point();
+        m_state->Position().PlayMove(color, cell);
+        //m_workBrd->PlayMove(color, cell);
+        to_be_played.set(static_cast<int>(cell));
+    }
+    //brd.stoneboard hash is not updated by playStones
+    m_workBrd->PlayStones(color, to_be_played, !color);
+    m_state->SetToPlay(!color);
+}
+
+void DfsSolver::UndoMoves(std::vector<HexMoveValue> &moves){
+    HexColor color = m_state->ToPlay();
+    for (HexMoveValue &move: moves){
+        HexPoint cell = move.point();
+        m_state->Position().UndoMove(cell);
+    }
+    //HexBoard->PlayStones() allow single Undo
+    m_workBrd->UndoMove(); 
+    m_state->SetToPlay(!color);
+}
+
 /** Takes back the move played. */
 void DfsSolver::UndoMove(HexPoint cell)
 {
@@ -398,6 +448,21 @@ bool DfsSolver::OrderMoves_v2(std::vector<HexMoveValue>& moves, const HexColor c
         moves.push_back(HexMoveValue(mvsc[i].second, mvsc[i].first));
     }
     return false;   
+}
+
+void DfsSolver::RandomKPartition(int n, int k, std::vector<int> &indices){
+    //randomly partition an array of n elements into k disjoint sets
+    // gen k-1 numbers [x1, x2, ..., x_{k-1}], where x_i < x_{i+1}
+    // algo: x_i \in rand[x_{i-1}+1, n - k + i], x0=1 
+    int prev_x = 0;
+    //min + std::rand() % (( max + 1 ) - min);
+    for (int i=1; i<=k-1; i++){
+        int x; // = random(prev_x+1, n - (k-i));
+        int u = std::rand()%((n - k + i) - (prev_x));
+        x = prev_x + 1 +  u;
+        prev_x = x;
+        indices.push_back(x);
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -446,7 +511,7 @@ bool DfsSolver::OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution,
 		
 		    // This state plus the child winning state (which is a leaf).
 		    solution.stats.minimal_explored = 2; 
-            //solution.proof = ProofUtil::MaximumProofSet(*m_workBrd, color);
+            solution.proof = ProofUtil::MaximumProofSet(*m_workBrd, color);
 		    solution.m_numMoves = data.m_numMoves + 1;
             solution.SetPV(*it);
 	       } 
@@ -527,7 +592,7 @@ bool DfsSolver::OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution,
                         // This state plus the child winning state
                         // (which is a leaf).
                         solution.stats.minimal_explored = 2;
-                        //solution.proof = proof;
+                        solution.proof = proof;
                         solution.m_numMoves = data.m_numMoves + 1;
                         solution.SetPV(*it);
                     }
@@ -601,8 +666,8 @@ bool DfsSolver::OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution,
                 //solution.proof = new_initial_proof;
             }
         }
-        //mustplay &= proof_intersection;
-        //solution.proof |= proof_union;
+        mustplay &= proof_intersection;
+        solution.proof |= proof_union;
     }
     return found_win;
 }

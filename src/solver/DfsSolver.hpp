@@ -366,8 +366,13 @@ private:
     //------------------------------------------------------------------------
 
     void PlayMove(HexPoint cell);
+
+    void PlayMoves(HexColor color, std::vector<HexMoveValue> &moves);
     
     void UndoMove(HexPoint cell);
+
+    void UndoMoves(std::vector<HexMoveValue> &moves);
+
 
     //bool CheckTransposition(DfsData& state) const;
 
@@ -381,6 +386,8 @@ private:
 
     bool OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution, std::vector<HexMoveValue>& moves);
     bool OrderMoves_v2(std::vector<HexMoveValue>& moves, const HexColor color);
+
+    void RandomKPartition(int n, int k, std::vector<int> &indices);
 
     bool SolveState(PointSequence& variation, DfsSolutionSet& solution);
 
