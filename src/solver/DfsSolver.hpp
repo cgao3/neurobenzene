@@ -248,12 +248,11 @@ public:
     // @{
 
     /** Controls whether gamestates decomposible into separate
-        components have each side solved separately and the proofs
-        combined as necessary. */
-    //bool UseDecompositions() const;
+       states by move grouping */
+    bool UseMoveGrouping() const;
 
     /** See UseDecompositions() */
-    //void SetUseDecompositions(bool enable);
+    void SetUseMoveGrouping(bool enable);
 
     /** Depth from root in which the current variation is printed. */
     int ProgressDepth() const;
@@ -304,7 +303,7 @@ public:
 
     /** */
     void TTWrite(const HexState& state, const DfsData& data);
-    bool TTRead(const HexState& state,  DfsData& data);
+    bool TTRead(const HexState& state,  DfsData& data) const;
 
 private:
 
@@ -339,9 +338,6 @@ private:
     
     boost::scoped_ptr<HexState> m_state;
 
-    /** See UseDecompositions() */
-    //bool m_use_decompositions;
-
     /** See UpdateDepth() */
     std::size_t m_update_depth;
 
@@ -353,6 +349,9 @@ private:
 
     /** See UseGuiFx() */
     bool m_use_guifx;
+
+    /** See UseMoveGrouping() */
+    bool m_use_move_grouping;
 
     /** See MoveOrdering() */
     int m_move_ordering;
@@ -374,10 +373,6 @@ private:
     void UndoMoves(std::vector<HexMoveValue> &moves);
 
 
-    //bool CheckTransposition(DfsData& state) const;
-
-    //void StoreState(const DfsData& state, const bitset_t& proof);
-
     bool CheckAbort();
     
     bool HandleLeafNode(DfsData& state, bitset_t& proof) const;
@@ -391,8 +386,6 @@ private:
 
     bool SolveState(PointSequence& variation, DfsSolutionSet& solution);
 
-    //bool SolveDecomposition(PointSequence& variation, DfsSolutionSet& solution, HexPoint group);
-
     bool SolveInteriorState(PointSequence& variation, 
                             DfsSolutionSet& solution);
 
@@ -401,15 +394,15 @@ private:
 
 //----------------------------------------------------------------------------
 
-//inline bool DfsSolver::UseDecompositions() const
-//{
-//    return m_use_decompositions;
-//}
+inline bool DfsSolver::UseMoveGrouping() const
+{
+    return m_use_move_grouping;
+}
 
-//inline void DfsSolver::SetUseDecompositions(bool enable)
-//{
-//   m_use_decompositions = enable;
-//}
+inline void DfsSolver::SetUseMoveGrouping(bool enable)
+{
+   m_use_move_grouping = enable;
+}
 
 inline std::size_t DfsSolver::UpdateDepth() const
 {

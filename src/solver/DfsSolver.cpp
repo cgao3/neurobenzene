@@ -35,7 +35,7 @@ const std::string DfsDB::DFS_DB_VERSION("BENZENE_DFS_DB_VER_0002");
 
 DfsSolver::DfsSolver()
     : m_positions(0),
-      //m_use_decompositions(true),
+      m_use_move_grouping(false),
       m_update_depth(4),
       m_shrink_proofs(false),
       m_backup_ice_info(false),
@@ -84,6 +84,7 @@ HexColor DfsSolver::Solve(const HexState& state, HexBoard& brd,
         LogInfo() <<"Solving by dfs\n";
         PointSequence variation;
         m_completed.resize(BITSETSIZE);
+        m_workBrd->ComputeAll(m_state->ToPlay());
         win = SolveState(variation, solution);
     }
     solution.proof &= m_state->Position().GetEmpty();
@@ -95,7 +96,7 @@ HexColor DfsSolver::Solve(const HexState& state, HexBoard& brd,
 
 //----------------------------------------------------------------------------
 
-bool DfsSolver::TTRead(const HexState& state, DfsData& data) {
+bool DfsSolver::TTRead(const HexState& state, DfsData& data) const {
     return m_positions->Get(state, data);
 }
 
@@ -181,7 +182,6 @@ bool DfsSolver::SolveState(PointSequence& variation, DfsSolutionSet& solution)
     DfsData data;
     bitset_t proof;
     HexColor color=m_state->ToPlay();
-    m_workBrd->ComputeAll(color);
     if (HandleLeafNode(data, proof)) 
     {
         solution.pv.clear();
@@ -193,8 +193,6 @@ bool DfsSolver::SolveState(PointSequence& variation, DfsSolutionSet& solution)
         return data.m_win;
     }
 
-    // Solve decompositions if they exist, otherwise solve the data
-    // normally.
     bool winning_state = false;
     winning_state = SolveInteriorState(variation, solution);
 
@@ -229,7 +227,7 @@ bool DfsSolver::SolveInteriorState(PointSequence& variation,
     // if we win instead, we use the proof generated from that state,
     // not this one. 
     solution.proof = ProofUtil::InitialProofForOpponent(*m_workBrd, color);
-    //solution.proof = ProofUtil::MaximumProofSet(*m_workBrd, !color);
+
     bitset_t mustplay = EndgameUtil::MovesToConsider(*m_workBrd, color);
     BenzeneAssert(mustplay.any());
 
@@ -285,9 +283,9 @@ bool DfsSolver::SolveInteriorState(PointSequence& variation,
     bool winning_state = OrderMoves(mustplay, solution, moves);
     //bool winning_state = OrderMoves_v2(moves, color);
 
-    int k=moves.size()/3;
-    std::vector<HexMoveValue> failed;
-    if (k>=1){ // do grouping
+    int k = 3;
+    if (k>=1 && UseMoveGrouping()){ // do grouping
+        std::vector<HexMoveValue> failed;
         std::vector<int> indices; 
         RandomKPartition(moves.size(), k, indices);
         int prev = 0;
@@ -306,9 +304,8 @@ bool DfsSolver::SolveInteriorState(PointSequence& variation,
               }
            }
         }
-    } else {
-        failed = moves;
-    }
+        moves = failed; //continue normal search in failed moves
+    } 
 
     winning_state = false; //force order moves not set this 
     if (mustplay != original_mustplay || ori_proof != solution.proof){
@@ -576,7 +573,6 @@ bool DfsSolver::OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution,
 	    // 8x8 is no longer solvable. However, it is very expensive!
             if (with_mustplay) {
                 PlayMove(*it);
-                m_workBrd->ComputeAll(m_state->ToPlay()); //newly added
                 DfsData data;
                 bitset_t proof;
 		        // No need to check DB/TT since did this above
@@ -643,7 +639,6 @@ bool DfsSolver::OrderMoves(bitset_t& mustplay, DfsSolutionSet& solution,
     // different move orders in the same state unless stable_sort() is
     // used.
     stable_sort(moves.begin(), moves.end());
-    // m_workBrd->ComputeAll(m_state->ToPlay()); // seems unnecessary, remove it
     // For a win: nothing to do
     if (found_win)
         LogFine() << "Found winning move; aborted ordering.\n";
